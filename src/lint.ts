@@ -47,7 +47,8 @@ function lintAt(
   errors: string[],
 ) {
   // One parsing path: a bare file:line gets the round head so parseLocation judges it.
-  const withSha = at.includes('@') ? at : `${at}@${head}`;
+  // Only a trailing @<hex> counts as a sha; an @ inside a path (monorepo scopes) does not.
+  const withSha = /@[0-9a-f]{7,40}$/i.test(at) ? at : `${at}@${head}`;
   let loc;
   try {
     loc = parseLocation(withSha);
@@ -55,10 +56,12 @@ function lintAt(
     errors.push(`at: ${(e as Error).message}`);
     return undefined;
   }
-  if (loc.sha !== head) {
+  // A prefix of the head is accepted (parseLocation already demands >= 7 hex) and widened to the full head.
+  if (!head.toLowerCase().startsWith(loc.sha.toLowerCase())) {
     errors.push(`at: sha ${loc.sha} is not the round head ${head}`);
     return undefined;
   }
+  loc.sha = head;
   const count = lineCount(loc.file);
   if (count === null) {
     errors.push(`at: file ${loc.file} does not exist at the round head`);

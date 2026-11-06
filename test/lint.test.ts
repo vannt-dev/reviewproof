@@ -26,6 +26,29 @@ test('an explicit sha equal to head is accepted', () => {
   assert.deepEqual(errorsFor({ at: `src/a.ts:12@${HEAD}` }), []);
 });
 
+test('a head prefix of 7+ chars is accepted and widened to the full head', () => {
+  const r = lintFinding({ ...valid, at: 'src/a.ts:12@ABC1234' }, HEAD, lines);
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.finding?.location.sha, HEAD);
+});
+
+test('short or non-prefix shas are errors naming at', () => {
+  for (const at of ['src/a.ts:12@abc123', 'src/a.ts:12@abc1235']) {
+    const errors = errorsFor({ at });
+    assert.equal(errors.length, 1, at);
+    assert.ok(errors[0]?.startsWith('at'), errors[0]);
+  }
+});
+
+test('an @ inside the path is not a sha', () => {
+  const scoped = (file: string) => (file === 'packages/@scope/x.ts' ? 10 : null);
+  for (const at of ['packages/@scope/x.ts:3', 'packages/@scope/x.ts:3@abc1234']) {
+    const r = lintFinding({ ...valid, at }, HEAD, scoped);
+    assert.deepEqual(r.errors, [], at);
+    assert.equal(r.finding?.location.sha, HEAD);
+  }
+});
+
 test('each bad field gives exactly one error naming it', () => {
   const cases: [Record<string, unknown>, string][] = [
     [{ severity: 'critical' }, 'severity'],
