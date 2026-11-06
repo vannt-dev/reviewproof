@@ -1,0 +1,23 @@
+{
+  "name": "reviewproof",
+  "version": "0.1.0",
+  "description": "A per-pull-request review ledger that makes review claims checkable",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "reviewproof": "dist/bin/reviewproof.js"
+  },
+  "files": ["dist", "hooks", ".claude-plugin", "skills"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}

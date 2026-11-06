@@ -1,0 +1,11 @@
+{
+  // Emit for npm: .ts import specifiers are rewritten to .js in dist/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": ["src", "bin"]
+}
