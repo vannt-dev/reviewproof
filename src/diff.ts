@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './git-env.ts';
 
 export interface ChangedFile {
   file: string;
@@ -52,6 +53,7 @@ export function changedFiles(repo: string, from: string, to: string): ChangedFil
   args.push('--no-ext-diff', '--no-textconv', from, to);
   const out = execFileSync('git', args, {
     cwd: repo,
+    env: gitEnv(),
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
   });
