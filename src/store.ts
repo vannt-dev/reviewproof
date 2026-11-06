@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { withLock } from './lock.ts';
 import type { Ledger, PrRef } from './types.ts';
 
 export class LedgerStore {
@@ -35,8 +36,14 @@ export class LedgerStore {
     fs.renameSync(tmp, path.join(dir, 'ledger.json'));
   }
 
+  /** One PR's commands take turns: each loads, changes and saves its ledger inside `fn`. */
+  locked<T>(ref: PrRef, fn: () => T): T {
+    return withLock(path.join(this.dirFor(ref), 'ledger.lock'), fn);
+  }
+
+  // Never overwrites: a failed run stays on the record. An existing log throws EEXIST.
   writeLog(ref: PrRef, round: number, name: string, attempt: number, text: string): string {
-    return this.write(path.join(this.dirFor(ref), 'logs', `round-${round}`, `${name}-${attempt}.log`), text);
+    return this.write(path.join(this.dirFor(ref), 'logs', `round-${round}`, `${name}-${attempt}.log`), text, 'wx');
   }
 
   draftFile(ref: PrRef, round: number): string {
@@ -47,23 +54,23 @@ export class LedgerStore {
     return this.write(this.draftFile(ref, round), md);
   }
 
-  // A re-run that changed nothing must not fail on git's "nothing to commit".
+  // A re-run that changed nothing must not fail on git's "nothing to commit". Every PR commits to
+  // this one repository, and git refuses a second command while one holds its index.
   commit(message: string): void {
-    if (!fs.existsSync(path.join(this.home, '.git'))) {
-      fs.mkdirSync(this.home, { recursive: true });
-      this.git('init');
-    }
-    // Checkout paths and temp files are this machine's, not review history (a hand-made home too).
-    const ignore = path.join(this.home, '.gitignore');
-    if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, 'active.json\n*.tmp\n');
-    if (this.git('status', '--porcelain') === '') return;
-    this.git('add', '-A');
-    this.git('commit', '-m', message);
+    withLock(path.join(this.home, 'commit.lock'), () => {
+      if (!fs.existsSync(path.join(this.home, '.git'))) this.git('init');
+      // Checkout paths, temp and lock files are this machine's, not review history (a hand-made home too).
+      const ignore = path.join(this.home, '.gitignore');
+      if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, 'active.json\n*.tmp\n*.lock\n');
+      if (this.git('status', '--porcelain') === '') return;
+      this.git('add', '-A');
+      this.git('commit', '-m', message);
+    });
   }
 
-  private write(file: string, text: string): string {
+  private write(file: string, text: string, flag = 'w'): string {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, text);
+    fs.writeFileSync(file, text, { flag });
     return file;
   }
 

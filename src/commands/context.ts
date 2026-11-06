@@ -19,7 +19,7 @@ export interface Deps {
 }
 
 /** The dependencies with their defaults filled in; the host is picked once the PR is known. */
-interface Env {
+export interface Env {
   cwd: string;
   home: string;
   now: () => Date;
@@ -115,11 +115,23 @@ export function openReview(env: Env): Review {
   return { checkout, ref: active.ref, ledger, round, config: loadConfig(checkout, env.home) };
 }
 
-/** openReview for a command that changes the round: a posted round is closed. */
-export function openForChange(env: Env): Review {
-  const r = openReview(env);
+/** For a command that changes the round: a posted round is closed. */
+export function assertOpen(r: Review): Review {
   if (r.round.post) throw new Error(`round ${r.round.n} is already posted: start the next round`);
   return r;
+}
+
+// Parallel commands take turns on a PR's ledger and none saves a copy loaded before the lock.
+// Work done before it (a gate run, a head check) was for `seen`'s round: a newer one is refused.
+export function locked<T>(env: Env, seen: Review, fn: (r: Review) => T): T {
+  return env.store.locked(seen.ref, () => {
+    const ledger = env.store.load(seen.ref);
+    const round = ledger?.rounds.at(-1);
+    if (!ledger || round?.n !== seen.round.n) {
+      throw new Error(`round ${round?.n} of ${prName(seen.ref)} started meanwhile: run the command again`);
+    }
+    return fn({ ...seen, ledger, round });
+  });
 }
 
 // The verdict and its draft described the round before this change, so both go.
@@ -135,15 +147,4 @@ export function saveChange(env: Env, r: Review): void {
 export function coverageOf(env: Env, r: Review): Coverage {
   const changed = changedFiles(r.checkout, r.round.from, r.round.head);
   return coverage(changed, allReads(env.store, r.ref, r.round), r.round.skips, r.config.skip);
-}
-
-// A verdict and a post speak about one head; a push since the round started makes both stale.
-export async function assertHead(env: Env, r: Review): Promise<void> {
-  const pr = await env.host(r.ref).resolve(r.ref);
-  if (pr.head.toLowerCase() !== r.round.head.toLowerCase()) {
-    throw new Error(
-      `head moved: the PR is at ${pr.head}, round ${r.round.n} reviewed ${r.round.head}; ` +
-        `start the next round with reviewproof start ${r.ledger.pr.url}`,
-    );
-  }
 }

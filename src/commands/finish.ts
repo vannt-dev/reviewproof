@@ -4,8 +4,19 @@ import { sameNote } from '../hosts.ts';
 import { currentStatus } from '../rounds.ts';
 import { verdictBlockers } from '../verdict.ts';
 import {
-  assertHead, bullets, coverageOf, openForChange, openReview, prName, str, take, type Command,
+  assertOpen, bullets, coverageOf, locked, openReview, prName, str, take, type Command, type Env, type Review,
 } from './context.ts';
+
+// A verdict and a post speak about one head; a push since the round started makes both stale.
+async function assertHead(env: Env, r: Review): Promise<void> {
+  const pr = await env.host(r.ref).resolve(r.ref);
+  if (pr.head.toLowerCase() !== r.round.head.toLowerCase()) {
+    throw new Error(
+      `head moved: the PR is at ${pr.head}, round ${r.round.n} reviewed ${r.round.head}; ` +
+        `start the next round with reviewproof start ${r.ledger.pr.url}`,
+    );
+  }
+}
 
 const verdict: Command = {
   args: '<pass|not-yet> --summary S',
@@ -14,23 +25,26 @@ const verdict: Command = {
   async run(env, a) {
     const [value] = take(a, '<pass|not-yet>');
     if (value !== 'pass' && value !== 'not-yet') throw new Error('the verdict is pass or not-yet');
-    const r = openForChange(env);
-    await assertHead(env, r);
+    const seen = assertOpen(openReview(env));
+    await assertHead(env, seen);
     const summary = (str(a, 'summary') ?? '').trim();
-    const blockers = verdictBlockers(r.ledger, coverageOf(env, r), r.config, value, summary);
-    if (blockers.length > 0) {
-      console.error(`verdict ${value} refused:\n${bullets(blockers)}`);
-      return 1;
-    }
-    r.round.verdict = { value, summary, at: env.now().toISOString() };
-    // A draft from before this verdict is stale even within the same millisecond.
-    delete r.round.draftAt;
-    env.store.save(r.ledger);
-    // Open = still to be fixed: never verified or withdrawn, or reopened.
-    const open = r.ledger.findings.filter((f) => ['open', 'reopened'].includes(currentStatus(f))).length;
-    env.store.commit(`${prName(r.ref)} round ${r.round.n}: ${value}, ${open} open`);
-    console.log(`round ${r.round.n}: ${value}, ${open} open; next: reviewproof draft`);
-    return 0;
+    // Checked and recorded in one turn of the lock: a change landing meanwhile is seen, not lost.
+    return locked(env, seen, (r) => {
+      const blockers = verdictBlockers(assertOpen(r).ledger, coverageOf(env, r), r.config, value, summary);
+      if (blockers.length > 0) {
+        console.error(`verdict ${value} refused:\n${bullets(blockers)}`);
+        return 1;
+      }
+      r.round.verdict = { value, summary, at: env.now().toISOString() };
+      // A draft from before this verdict is stale even within the same millisecond.
+      delete r.round.draftAt;
+      env.store.save(r.ledger);
+      // Open = still to be fixed: never verified or withdrawn, or reopened.
+      const open = r.ledger.findings.filter((f) => ['open', 'reopened'].includes(currentStatus(f))).length;
+      env.store.commit(`${prName(r.ref)} round ${r.round.n}: ${value}, ${open} open`);
+      console.log(`round ${r.round.n}: ${value}, ${open} open; next: reviewproof draft`);
+      return 0;
+    });
   },
 };
 
@@ -39,13 +53,14 @@ const draft: Command = {
   about: 'write the round note and print it for the person to read',
   async run(env, a) {
     take(a);
-    const r = openForChange(env);
-    const md = renderDraft(r.ledger, coverageOf(env, r));
-    const file = env.store.writeDraft(r.ref, r.round.n, md);
-    r.round.draftAt = env.now().toISOString();
-    env.store.save(r.ledger);
-    console.log(`${file}\n\n${md}`);
-    return 0;
+    return locked(env, openReview(env), (r) => {
+      const md = renderDraft(assertOpen(r).ledger, coverageOf(env, r));
+      const file = env.store.writeDraft(r.ref, r.round.n, md);
+      r.round.draftAt = env.now().toISOString();
+      env.store.save(r.ledger);
+      console.log(`${file}\n\n${md}`);
+      return 0;
+    });
   },
 };
 
@@ -86,9 +101,17 @@ const post: Command = {
     const host = env.host(r.ref);
     const { id, url } = await host.comment(r.ref, body);
     // Recorded before the read-back: the comment exists either way, and a re-run must not post twice.
-    round.post = { id, url, approvedBy, at: env.now().toISOString() };
-    env.store.save(r.ledger);
-    env.store.commit(`${prName(r.ref)} round ${round.n}: posted`);
+    // The host call ran outside the lock, so the post goes into the ledger as it is now.
+    const post = { id, url, approvedBy, at: env.now().toISOString() };
+    env.store.locked(r.ref, () => {
+      const l = env.store.load(r.ref);
+      const now = l?.rounds.find((x) => x.n === round.n);
+      if (!l || !now) throw new Error(`round ${round.n} is gone from the ledger; the note is at ${url}`);
+      if (now.post) throw new Error(`round ${round.n} was posted meanwhile at ${now.post.url}: delete ${url}`);
+      now.post = post;
+      env.store.save(l);
+      env.store.commit(`${prName(r.ref)} round ${round.n}: posted`);
+    });
     console.log(`posted ${url}`);
     const back = await host.readComment(r.ref, id);
     if (sameNote(body, back)) return 0;

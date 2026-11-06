@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mock } from 'node:test';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { run } from '../src/cli.ts';
 import type { Host } from '../src/hosts.ts';
 import type { PrInfo } from '../src/rounds.ts';
@@ -61,6 +61,16 @@ export interface Review {
   rp(...argv: string[]): Promise<Result>;
   /** Commits `text` to `file` as a new PR head and pushes it to the pull ref. */
   push(file: string, text: string): string;
+}
+
+/** This node (never one from PATH) in a child process; several run at once, so it resolves on exit. */
+export function runNode(args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}): Promise<Result> {
+  const options = { cwd: opts.cwd, env: { ...process.env, ...opts.env }, encoding: 'utf8' } as const;
+  return new Promise((resolve) => {
+    execFile(process.execPath, args, options, (e, out, err) => {
+      resolve({ code: e ? (typeof e.code === 'number' ? e.code : 1) : 0, out, err });
+    });
+  });
 }
 
 function write(dir: string, file: string, text: string): void {

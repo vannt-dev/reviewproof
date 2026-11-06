@@ -78,6 +78,17 @@ Severity: `blocking`, `major`, `minor`. Source kind: `rule`, `design`, `legacy`,
 not be empty. `at` is checked at the round's head: the file must exist and the line must be inside it.
 Withdrawal evidence must contain a `file:line@sha` location or a URL.
 
+## Parallel reviews
+
+The ledger is locked per pull request while a command changes it, so commands run at the same
+time are safe: none loses another's change, and a gate's log is never overwritten.
+
+- Start each gate as its own background command right after `start`, and review while they run.
+  `status` shows a gate still running as missing.
+- Split a large diff among helper agents: their Reads count, each recorded with the agent's id.
+- Several pull requests: one checkout (a git worktree) and one agent per pull request; each pull
+  request has its own ledger, so they never wait for each other.
+
 ## Config
 
 `.reviewproof.json` in the reviewed checkout, else `config.json` in the ledger home. The first file
@@ -94,7 +105,7 @@ not valid JSON is an error.
 
 `$REVIEWPROOF_HOME`, default `~/.reviewproof`, is a git repository of its own, so reviews never touch
 the reviewed repository. Each verdict and each post makes one commit. You may push it to a private
-remote. `active.json` (this machine's checkout paths) is git-ignored.
+remote. `active.json` (this machine's checkout paths) and the `*.lock` files are git-ignored.
 
 ```text
 <host>/<owner>/<repo>/<number>/

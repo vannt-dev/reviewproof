@@ -13,29 +13,45 @@ function redact(text: string): string {
 }
 
 // Attempts are only ever appended: a failed run stays in the round next to the run that fixed it.
+// After the highest one, not the count: a skipped number (see newLog) is never handed out twice.
 function nextAttempt(round: Round, name: string): number {
-  return round.gates.filter((g) => g.name === name).length + 1;
+  return Math.max(0, ...round.gates.filter((g) => g.name === name).map((g) => g.attempt)) + 1;
 }
 
-export function runGate(
-  store: LedgerStore,
-  ref: PrRef,
-  round: Round,
-  name: string,
-  argv: string[],
-  cwd: string,
-): GateAttempt {
-  const attempt = nextAttempt(round, name);
+/** A gate command's outcome. Nothing is recorded yet, so it runs outside the ledger lock. */
+export interface GateRun {
+  argv: string[];
+  exitCode: number | null;
+  text: string;
+}
+
+export function captureGate(argv: string[], cwd: string): GateRun {
   const r = runCapture(argv, cwd);
-  const text = redact(r.error === undefined ? r.output : `${r.output}${r.error}\n`);
-  const logPath = store.writeLog(ref, round.n, name, attempt, text);
+  return { argv, exitCode: r.status, text: redact(r.error === undefined ? r.output : `${r.output}${r.error}\n`) };
+}
+
+// A log already there is an attempt the ledger does not hold (its save was lost): it keeps its
+// number and its text, and this run takes the next number.
+function newLog(store: LedgerStore, ref: PrRef, round: Round, name: string, text: string): { attempt: number; file: string } {
+  for (let attempt = nextAttempt(round, name); ; attempt++) {
+    try {
+      return { attempt, file: store.writeLog(ref, round.n, name, attempt, text) };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+    }
+  }
+}
+
+/** Numbers the attempt and keeps its log: under the ledger lock, on the ledger loaded there. */
+export function recordGate(store: LedgerStore, ref: PrRef, round: Round, name: string, run: GateRun): GateAttempt {
+  const { attempt, file } = newLog(store, ref, round, name, run.text);
   const g: GateAttempt = {
     name,
     attempt,
-    argv,
-    exitCode: r.status,
-    result: r.status === 0 ? 'pass' : 'fail',
-    log: path.relative(store.dirFor(ref), logPath).split(path.sep).join('/'),
+    argv: run.argv,
+    exitCode: run.exitCode,
+    result: run.exitCode === 0 ? 'pass' : 'fail',
+    log: path.relative(store.dirFor(ref), file).split(path.sep).join('/'),
     at: new Date().toISOString(),
   };
   round.gates.push(g);

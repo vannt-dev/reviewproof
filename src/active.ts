@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { withLock } from './lock.ts';
 import type { PrRef } from './types.ts';
 
 type ActiveMap = Record<string, { ref: PrRef }>;
@@ -38,21 +39,26 @@ function load(home: string): ActiveMap {
   }
 }
 
-function save(home: string, map: ActiveMap): void {
-  fs.mkdirSync(home, { recursive: true });
-  fs.writeFileSync(path.join(home, 'active.json'), `${JSON.stringify(map, null, 2)}\n`);
+// Agents in other checkouts start their reviews at the same time; each change waits for the
+// one before it, or one checkout would be lost.
+function update(home: string, change: (map: ActiveMap) => void): void {
+  withLock(path.join(home, 'active.lock'), () => {
+    const map = load(home);
+    change(map);
+    fs.writeFileSync(path.join(home, 'active.json'), `${JSON.stringify(map, null, 2)}\n`);
+  });
 }
 
 export function setActive(home: string, checkout: string, ref: PrRef): void {
-  const map = load(home);
-  map[canon(checkout)] = { ref };
-  save(home, map);
+  update(home, (map) => {
+    map[canon(checkout)] = { ref };
+  });
 }
 
 export function clearActive(home: string, checkout: string): void {
-  const map = load(home);
-  delete map[canon(checkout)];
-  save(home, map);
+  update(home, (map) => {
+    delete map[canon(checkout)];
+  });
 }
 
 // The longest matching checkout wins, so a checkout nested in another resolves to itself.

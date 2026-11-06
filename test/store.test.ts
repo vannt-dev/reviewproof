@@ -61,13 +61,16 @@ test('a newer schema is refused', () => {
   assert.throws(() => store.load(ref), /^Error: ledger schema 2 is newer than this reviewproof \(1\)$/);
 });
 
-test('writeLog keeps every attempt; writeDraft writes the round file', () => {
+test('writeLog keeps every attempt and never overwrites one; writeDraft rewrites the round file', () => {
   const store = new LedgerStore(tmpDir());
   const a = store.writeLog(ref, 1, 'lint', 1, 'one');
   const b = store.writeLog(ref, 1, 'lint', 2, 'two');
   assert.equal(a, path.join(store.dirFor(ref), 'logs', 'round-1', 'lint-1.log'));
   assert.equal(fs.readFileSync(a, 'utf8'), 'one');
   assert.equal(fs.readFileSync(b, 'utf8'), 'two');
+  assert.throws(() => store.writeLog(ref, 1, 'lint', 1, 'again'), { code: 'EEXIST' });
+  assert.equal(fs.readFileSync(a, 'utf8'), 'one');
+  store.writeDraft(ref, 2, '# old');
   const d = store.writeDraft(ref, 2, '# draft');
   assert.equal(d, path.join(store.dirFor(ref), 'drafts', 'round-2.md'));
   assert.equal(fs.readFileSync(d, 'utf8'), '# draft');
@@ -80,12 +83,13 @@ test('commit inits the repo on first use and commits with the message', () => {
   const store = new LedgerStore(home);
   store.save(ledger);
   fs.writeFileSync(path.join(home, 'active.json'), '{}');
-  store.commit('round 1');
+  // As verdict and post commit: inside the ledger lock, whose file is there meanwhile.
+  store.locked(ref, () => store.commit('round 1'));
   assert.ok(fs.existsSync(path.join(home, '.git')));
   const git = (...args: string[]) => spawnSync('git', ['-C', home, ...args], { encoding: 'utf8' }).stdout.trim();
   assert.equal(git('rev-list', '--count', 'HEAD'), '1');
   assert.equal(git('log', '-1', '--format=%s'), 'round 1');
-  // Machine-local state (checkout paths, temp files) stays out of the history.
+  // Machine-local state (checkout paths, temp and lock files) stays out of the history.
   assert.deepEqual(git('ls-files').split('\n'), ['.gitignore', 'gitlab.example.com/grp/sub/repo/7/ledger.json']);
   // Nothing changed since: a re-run commits nothing and does not fail.
   store.commit('round 1 again');
