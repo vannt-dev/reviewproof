@@ -144,6 +144,7 @@ test('activeFor picks the longest nested checkout and clearActive removes it', (
   setActive(home, inner, other);
   assert.equal(activeFor(home, path.join(inner, 'x.ts'))?.ref.number, 2);
   assert.equal(activeFor(home, path.join(outer, 'x.ts'))?.ref.number, 1);
+  assert.equal(activeFor(home, inner)?.ref.number, 2); // the checkout folder itself (CLI commands)
   clearActive(home, inner);
   assert.equal(activeFor(home, path.join(inner, 'x.ts'))?.ref.number, 1);
 });

@@ -84,6 +84,9 @@ test('commit inits the repo on first use and commits with the message', () => {
   const git = (...args: string[]) => spawnSync('git', ['-C', home, ...args], { encoding: 'utf8' }).stdout.trim();
   assert.equal(git('rev-list', '--count', 'HEAD'), '1');
   assert.equal(git('log', '-1', '--format=%s'), 'round 1');
+  // Nothing changed since: a re-run commits nothing and does not fail.
+  store.commit('round 1 again');
+  assert.equal(git('rev-list', '--count', 'HEAD'), '1');
 });
 
 test('loadConfig prefers the checkout file and fills defaults', () => {

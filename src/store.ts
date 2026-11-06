@@ -39,15 +39,21 @@ export class LedgerStore {
     return this.write(path.join(this.dirFor(ref), 'logs', `round-${round}`, `${name}-${attempt}.log`), text);
   }
 
-  writeDraft(ref: PrRef, round: number, md: string): string {
-    return this.write(path.join(this.dirFor(ref), 'drafts', `round-${round}.md`), md);
+  draftFile(ref: PrRef, round: number): string {
+    return path.join(this.dirFor(ref), 'drafts', `round-${round}.md`);
   }
 
+  writeDraft(ref: PrRef, round: number, md: string): string {
+    return this.write(this.draftFile(ref, round), md);
+  }
+
+  // A re-run that changed nothing must not fail on git's "nothing to commit".
   commit(message: string): void {
     if (!fs.existsSync(path.join(this.home, '.git'))) {
       fs.mkdirSync(this.home, { recursive: true });
       this.git('init');
     }
+    if (this.git('status', '--porcelain') === '') return;
     this.git('add', '-A');
     this.git('commit', '-m', message);
   }
@@ -58,7 +64,7 @@ export class LedgerStore {
     return file;
   }
 
-  private git(...args: string[]): void {
-    execFileSync('git', ['-C', this.home, ...args], { stdio: 'pipe' });
+  private git(...args: string[]): string {
+    return execFileSync('git', ['-C', this.home, ...args], { stdio: 'pipe', encoding: 'utf8' });
   }
 }

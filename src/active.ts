@@ -20,8 +20,10 @@ export function canon(p: string): string {
 // Windows paths differ in case only, so compare folded there.
 const key = (p: string): string => (process.platform === 'win32' ? p.toLowerCase() : p);
 
+// The checkout folder itself counts: CLI commands look up the review by the checkout root.
 function inside(checkout: string, file: string): boolean {
-  return key(file).startsWith(`${key(checkout).replace(/\/$/, '')}/`);
+  const root = key(checkout).replace(/\/$/, '');
+  return key(file) === root || key(file).startsWith(`${root}/`);
 }
 
 export function relativeTo(checkout: string, file: string): string {

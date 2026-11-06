@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hedges, lintFinding } from '../src/lint.ts';
+import { hedges, lintFinding, resolveAt } from '../src/lint.ts';
 
 const HEAD = 'abc1234def';
 const lines = (file: string) => (file === 'src/a.ts' ? 40 : null);
@@ -30,6 +30,13 @@ test('a head prefix of 7+ chars is accepted and widened to the full head', () =>
   const r = lintFinding({ ...valid, at: 'src/a.ts:12@ABC1234' }, HEAD, lines);
   assert.deepEqual(r.errors, []);
   assert.equal(r.finding?.location.sha, HEAD);
+});
+
+test('resolveAt is the same resolution on its own (mark --at uses it)', () => {
+  assert.deepEqual(resolveAt('src/a.ts:12@abc1234', HEAD, lines), {
+    location: { file: 'src/a.ts', line: 12, sha: HEAD },
+  });
+  assert.deepEqual(resolveAt('src/a.ts:41', HEAD, lines), { error: 'at: line 41 is past the end of src/a.ts (40 lines)' });
 });
 
 test('short or non-prefix shas are errors naming at', () => {

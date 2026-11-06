@@ -1,5 +1,5 @@
 import { parseLocation } from './location.ts';
-import type { NewFinding, Severity, SourceKind } from './types.ts';
+import type { Location, NewFinding, Severity, SourceKind } from './types.ts';
 
 const SEVERITIES: readonly string[] = ['blocking', 'major', 'minor'] satisfies Severity[];
 const KINDS: readonly string[] = ['rule', 'design', 'legacy', 'other'] satisfies SourceKind[];
@@ -26,51 +26,45 @@ export function lintFinding(
   if (text(source.ref) === '') errors.push('source.ref is required (rule, design doc or legacy path)');
   if (text(input.title) === '') errors.push('title is required');
 
-  const location = lintAt(text(input.at), head, lineCount, errors);
-  if (errors.length > 0 || !location) return { errors };
+  const at = resolveAt(text(input.at), head, lineCount);
+  if ('error' in at) errors.push(at.error);
+  if (errors.length > 0 || !('location' in at)) return { errors };
 
   const body = text(input.body);
   const finding: NewFinding = {
     severity: input.severity as Severity,
     source: { kind: source.kind as SourceKind, ref: text(source.ref) },
-    location,
+    location: at.location,
     title: text(input.title),
     ...(body === '' ? {} : { body }),
   };
   return { finding, errors };
 }
 
-function lintAt(
+/** `file:line[@sha]` as a location at the round head; findings and `mark --at` share it. */
+export function resolveAt(
   at: string,
   head: string,
   lineCount: (file: string) => number | null,
-  errors: string[],
-) {
+): { location: Location } | { error: string } {
   // One parsing path: a bare file:line gets the round head so parseLocation judges it.
   // Only a trailing @<hex> counts as a sha; an @ inside a path (monorepo scopes) does not.
   const withSha = /@[0-9a-f]{7,40}$/i.test(at) ? at : `${at}@${head}`;
-  let loc;
+  let loc: Location;
   try {
     loc = parseLocation(withSha);
   } catch (e) {
-    errors.push(`at: ${(e as Error).message}`);
-    return undefined;
+    return { error: `at: ${(e as Error).message}` };
   }
   // A prefix of the head is accepted (parseLocation already demands >= 7 hex) and widened to the full head.
   if (!head.toLowerCase().startsWith(loc.sha.toLowerCase())) {
-    errors.push(`at: sha ${loc.sha} is not the round head ${head}`);
-    return undefined;
+    return { error: `at: sha ${loc.sha} is not the round head ${head}` };
   }
   loc.sha = head;
   const count = lineCount(loc.file);
-  if (count === null) {
-    errors.push(`at: file ${loc.file} does not exist at the round head`);
-  } else if (loc.line > count) {
-    errors.push(`at: line ${loc.line} is past the end of ${loc.file} (${count} lines)`);
-  } else {
-    return loc;
-  }
-  return undefined;
+  if (count === null) return { error: `at: file ${loc.file} does not exist at the round head` };
+  if (loc.line > count) return { error: `at: line ${loc.line} is past the end of ${loc.file} (${count} lines)` };
+  return { location: loc };
 }
 
 export function hedges(textIn: string, words: string[]): string[] {

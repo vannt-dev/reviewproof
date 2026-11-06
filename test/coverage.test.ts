@@ -20,7 +20,7 @@ const env = {
   GIT_COMMITTER_EMAIL: 't@example.com',
 };
 const git = (...args: string[]) =>
-  execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
+  execFileSync('git', args, { cwd: root, env, encoding: 'utf8', stdio: 'pipe' }).trim();
 const lines = (n: number, tag = 'l') =>
   Array.from({ length: n }, (_, i) => `${tag}${i + 1}`).join('\n') + '\n';
 const put = (f: string, data: string | Buffer) => fs.writeFileSync(path.join(root, f), data);

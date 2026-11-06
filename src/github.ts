@@ -6,11 +6,14 @@ import type { PrInfo } from './rounds.ts';
 import { runCapture } from './spawn.ts';
 import type { PrRef } from './types.ts';
 
-/** Runs `gh <args>` and returns stdout; throws with gh's message on failure. */
+// No update notice, and a missing login fails instead of waiting for input.
+const GH_ENV = { GH_NO_UPDATE_NOTIFIER: '1', GH_PROMPT_DISABLED: '1' };
+
+/** Runs `gh <args>` and returns stdout only; throws with gh's message on failure. */
 function gh(args: string[]): string {
-  const r = runCapture(['gh', ...args], process.cwd());
+  const r = runCapture(['gh', ...args], process.cwd(), GH_ENV);
   if (r.status !== 0) throw new Error(`gh ${args[0] ?? ''} failed: ${r.error ?? r.output.trim()}`);
-  return r.output;
+  return r.stdout;
 }
 
 export class GitHub implements Host {
