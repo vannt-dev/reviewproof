@@ -4,13 +4,13 @@ import { LedgerStore } from './store.ts';
 import type { ReadMark } from './types.ts';
 
 // Also npx reviewproof@0.1.0 post, reviewproof.cmd / .ps1, a quoted ...\reviewproof.js" post, any case.
-const POST = /\breviewproof(?:[@.][^\s"']*)?["']?\s+(?:\S+\s+)*?post(?![\w.-])/i;
+const POST = /\breviewproof(?:[@.][^\s"']*)?["']?\s+(?:-\S*\s+)*post(?![\w.-])/i;
 
 const DENY = JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'PreToolUse',
     permissionDecision: 'deny',
-    permissionDecisionReason: 'Only the person posts: they run ! reviewproof post --approved-by <name>',
+    permissionDecisionReason: 'Only the person posts: run reviewproof post --approved-by <name> in your own terminal, outside Claude Code',
   },
 });
 

@@ -52,7 +52,8 @@ comment's id and URL. It refuses when the draft file differs from the note the l
 terminal, not from the agent. After the author pushes, run `start` again: every finding still open
 needs a status before the next verdict. A new round diffs from the head of the most recent round
 that has a verdict, so files from a round nobody finished are still in it; with no earlier verdict
-it diffs from the merge-base, as `start --full` always does.
+it diffs from the first round's start (the merge-base when that round began); `start --full` diffs
+from the current merge-base.
 
 ```sh
 reviewproof mark F1-1 verified
@@ -71,8 +72,7 @@ only the printed ones count as read. Files that would fit in a later call are li
 is larger than the budget is never printed or counted read, not even when it is the only file
 asked for; stderr says `<file>: its diff is larger than one call can show; open it with Read in
 parts (each part is recorded) or record what you read with reviewproof read <file> --lines a-b`.
-Gate names start with a letter or
-digit and then hold only letters, digits, `.`, `_` and `-` (for example `test-unit`, not
+Gate names start with a letter or digit and then hold only letters, digits, `.`, `_` and `-` (for example `test-unit`, not
 `test:unit` or `../x`).
 
 ### Findings file

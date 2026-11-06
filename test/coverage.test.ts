@@ -104,8 +104,13 @@ test('a whole-file read covers everything; a partial mark covers nothing', () =>
 });
 
 test('deleted files count only with a diff read', () => {
-  assert.ok(cov([mark('e.ts', { via: 'manual' })]).unread.includes('e.ts'));
+  assert.ok(cov([mark('e.ts', { via: 'hook' })]).unread.includes('e.ts'));
+  assert.ok(cov([mark('e.ts', { via: 'manual', range: [1, 1] })]).unread.includes('e.ts'));
   assert.ok(cov([mark('e.ts', { via: 'diff' })]).read.includes('e.ts'));
+});
+
+test('a whole-file manual read also counts a deleted file (its old content was read elsewhere)', () => {
+  assert.ok(cov([mark('e.ts', { via: 'manual' })]).read.includes('e.ts'));
 });
 
 test('binary files count with any non-partial read', () => {

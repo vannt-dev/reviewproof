@@ -47,7 +47,9 @@ type State = 'read' | 'partial' | 'unread';
 
 function stateOf(f: ChangedFile, reads: ReadMark[]): State {
   const real = reads.filter((r) => r.file === f.file && !r.partial);
-  if (f.status === 'D') return real.some((r) => r.via === 'diff') ? 'read' : 'unread';
+  // A deleted file has no new lines to read: its diff counts, and so does a whole-file manual read
+  // of its old content (needed when the diff is too large to print).
+  if (f.status === 'D') return real.some((r) => r.via === 'diff' || (r.via === 'manual' && !r.range)) ? 'read' : 'unread';
   if (real.length === 0) return 'unread';
   if (f.binary || f.ranges.length === 0) return 'read';
   if (real.some((r) => r.via === 'diff' || !r.range)) return 'read';

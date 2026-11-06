@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { removeTmp, setup, steps } from './e2e-helper.ts';
+import fs from 'node:fs';
+import path from 'node:path';
+import { git, removeTmp, setup, steps } from './e2e-helper.ts';
 
 // Each test file runs in its own process, so the budget set here reaches no other file.
 const budget = (chars: number): void => void (process.env.REVIEWPROOF_DIFF_BUDGET = String(chars));
@@ -57,4 +59,35 @@ test('nothing printed when every file is too large', async () => {
   assert.doesNotMatch(r.out, /^\+/m);
   assert.match(r.out, /0 changed files counted as read/);
   assert.equal(r.err, tooLarge('src/a.ts') + tooLarge('src/c.ts'));
+});
+
+test('an oversized deleted file is counted only by a whole-file read of its old content', async () => {
+  const s = setup();
+  fs.rmSync(path.join(s.checkout, 'src/b.ts'));
+  s.push('src/d.ts', 'd\n');
+  await steps(s, ['start', 'o/r#1']);
+  budget(10);
+  const from = git(s.checkout, 'rev-parse', 'origin/main'); // round 1 starts at the merge-base
+  const r = await s.rp('diff', 'src/b.ts');
+  assert.equal(
+    r.err,
+    `src/b.ts: deleted, and its diff is larger than one call can show; read its old content ` +
+      `(git show ${from}:src/b.ts) and record it with reviewproof read src/b.ts\n`,
+  );
+  const unread = /unread:[^]*- src\/b\.ts/;
+  await s.rp('read', 'src/b.ts', '--lines', '1-1');
+  assert.match((await s.rp('status')).out, unread);
+  await s.rp('read', 'src/b.ts');
+  assert.doesNotMatch((await s.rp('status')).out, unread);
+});
+
+test('a bare diff leaves out skipped files, so they do not use the budget', async () => {
+  const s = setup();
+  await steps(s, ['start', 'o/r#1'], ['skip', 'src/c.ts', '--reason', 'generated']);
+  budget(25000);
+  const r = await s.rp('diff');
+  assert.doesNotMatch(r.out, /^\+c$/m);
+  assert.match(r.out, /1 changed file counted as read/);
+  const named = await s.rp('diff', 'src/c.ts');
+  assert.match(named.out, /^\+c$/m);
 });

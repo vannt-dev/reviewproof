@@ -128,7 +128,8 @@ test('a Bash or PowerShell reviewproof post is denied, other commands are not', 
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
-      permissionDecisionReason: 'Only the person posts: they run ! reviewproof post --approved-by <name>',
+      permissionDecisionReason:
+        'Only the person posts: run reviewproof post --approved-by <name> in your own terminal, outside Claude Code',
     },
   });
   assert.notEqual(handleHook(bash('node dist/reviewproof.js post', 'PowerShell'), s.home), null);
@@ -148,8 +149,18 @@ test('every spelling of the post command is denied', () => {
     'reviewproof.ps1 post',
     'REVIEWPROOF POST',
     'reviewproof -x post',
+    'reviewproof post --approved-by me',
   ]) assert.equal(denied(c), true, c);
-  for (const c of ['reviewproof status', 'reviewproof poster', 'reviewproof diff post.ts']) {
+  for (const c of [
+    'reviewproof status',
+    'reviewproof poster',
+    'reviewproof diff post.ts',
+    'reviewproof verdict not-yet --summary "the POST handler skips validation"',
+    'reviewproof verdict pass --summary "Ready to post"',
+    'reviewproof add --title "blog post body unescaped"',
+    'reviewproof read post',
+    'reviewproof status && curl -X POST https://x',
+  ]) {
     assert.equal(denied(c), false, c);
   }
 });

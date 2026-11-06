@@ -73,8 +73,9 @@ over several rounds, and who approves what gets posted.
   `post --approved-by <name>` sends the draft as a pull-request comment (GitHub through
   `gh api`, GitLab through `glab api`), the body passed as a UTF-8 JSON file, then reads the
   comment back, compares it with the draft and stores its id and URL. The plugin's PreToolUse
-  hook refuses `reviewproof post` from the agent, so only the person runs it (in Claude Code:
-  `! reviewproof post ...`).
+  hook refuses `reviewproof post` from the agent, and `post` itself refuses inside Claude Code
+  (`CLAUDECODE=1`), so only the person runs it, in their own terminal outside Claude Code
+  (`reviewproof post --approved-by <name>`).
 - **G7 Ledger store.** `$REVIEWPROOF_HOME` (default `~/.reviewproof`) is a git repository:
   `<host>/<owner>/<repo>/<number>/ledger.json`, `logs/round-<k>/<gate>-<attempt>.log`,
   `drafts/round-<k>.md`. The verdict and the post each make one commit
