@@ -36,7 +36,7 @@ test('table rows are this round only, pipes are escaped, skips and verdict are l
     ...cov,
     skipped: [{ file: 'x.lock', reason: 'config' }],
   });
-  assert.match(out, /^\| F2-1 \| major \| design: doc \| a\.ts:3@h2 \| a \\| b \|$/m);
+  assert.ok(out.includes('| a.ts:3@h2 | a \\| b |'), 'the pipe in the title is escaped');
   assert.doesNotMatch(out, /\| F1-1 \|/);
   assert.match(out, /Verdict: not-yet\.\*\* Fix F2-1/);
   assert.match(out, /- lint: not-checked \(no linter\), 1 attempt$/m);

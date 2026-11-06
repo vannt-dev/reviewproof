@@ -3,7 +3,7 @@ import { currentStatus } from './rounds.ts';
 import type { Finding, GateAttempt, Ledger, Location } from './types.ts';
 
 // A pipe or line break inside a cell would split the table row.
-const cell = (s: string): string => s.replace(/\|/g, '\|').replace(/\r?\n/g, ' ');
+const cell = (s: string): string => s.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 const at = (loc: Location): string => `${loc.file}:${loc.line}@${loc.sha}`;
 
 function gateLine(name: string, gates: GateAttempt[]): string {
