@@ -4,12 +4,12 @@ import type { LedgerStore } from './store.ts';
 import type { GateAttempt, PrRef, Round } from './types.ts';
 
 // Longest values first, so a token that contains another one is replaced whole.
-function redact(text: string): string {
+function redactor(): (text: string) => string {
   const secrets = Object.entries(process.env)
     .filter(([name, value]) => name.endsWith('_TOKEN') && value)
     .map(([, value]) => value as string)
     .sort((a, b) => b.length - a.length);
-  return secrets.reduce((t, s) => t.split(s).join('***'), text);
+  return (text) => secrets.reduce((t, s) => t.split(s).join('***'), text);
 }
 
 // Attempts are only ever appended: a failed run stays in the round next to the run that fixed it.
@@ -25,9 +25,13 @@ export interface GateRun {
   text: string;
 }
 
+// The command runs as given; what is kept (the log, the command line in ledger.json and SARIF)
+// shows no token value, even one passed as an argument.
 export function captureGate(argv: string[], cwd: string): GateRun {
   const r = runCapture(argv, cwd);
-  return { argv, exitCode: r.status, text: redact(r.error === undefined ? r.output : `${r.output}${r.error}\n`) };
+  const redact = redactor();
+  const text = r.error === undefined ? r.output : `${r.output}${r.error}\n`;
+  return { argv: argv.map(redact), exitCode: r.status, text: redact(text) };
 }
 
 // A log already there is an attempt the ledger does not hold (its save was lost): it keeps its

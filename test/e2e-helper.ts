@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mock } from 'node:test';
+import assert from 'node:assert/strict';
 import { execFile, execFileSync } from 'node:child_process';
 import { run } from '../src/cli.ts';
 import type { Host } from '../src/hosts.ts';
@@ -11,6 +12,8 @@ import type { PrRef } from '../src/types.ts';
 // Commits in the temp repos and in the ledger home need an identity on a bare CI runner.
 process.env.GIT_AUTHOR_NAME = process.env.GIT_COMMITTER_NAME = 'Test';
 process.env.GIT_AUTHOR_EMAIL = process.env.GIT_COMMITTER_EMAIL = 'test@example.com';
+// The suite may itself run inside Claude Code, where post refuses; the test that wants that sets it.
+delete process.env.CLAUDECODE;
 
 export const ref: PrRef = { host: 'github', hostname: 'github.com', project: 'o/r', number: 1 };
 
@@ -126,4 +129,20 @@ export function setup(): Review {
     return r;
   };
   return { root, checkout, home, host, rp, push };
+}
+
+export const passTest = ['gate', 'run', 'test', '--', process.execPath, '-e', '0'];
+
+export async function steps(s: Review, ...runs: string[][]): Promise<void> {
+  for (const argv of runs) {
+    const r = await s.rp(...argv);
+    assert.equal(r.code, 0, `${argv.join(' ')}: ${r.err}`);
+  }
+}
+
+/** Round 1 where verdict pass is allowed: every file read, the required gate passed. */
+export async function ready(): Promise<Review> {
+  const s = setup();
+  await steps(s, ['start', 'o/r#1'], ['diff'], passTest);
+  return s;
 }

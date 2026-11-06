@@ -5,7 +5,7 @@ import { changedFiles } from '../diff.ts';
 import { parsePrRef } from '../hosts.ts';
 import { lintFinding, resolveAt } from '../lint.ts';
 import { addFinding, mark, startRound } from '../rounds.ts';
-import type { Location, NewFinding } from '../types.ts';
+import type { Ledger, Location, NewFinding, PrRef } from '../types.ts';
 import {
   assertOpen, bullets, checkoutOf, count, git, lineCounter, locked, openReview, saveChange, str, take, type Command,
 } from './context.ts';
@@ -19,19 +19,11 @@ const start: Command = {
     const ref = parsePrRef(input);
     const checkout = checkoutOf(env.cwd);
     const pr = await env.host(ref).resolve(ref);
-    // The pull ref also holds heads pushed from forks, which no branch of origin has.
-    const pull = ref.host === 'github' ? `pull/${ref.number}/head` : `merge-requests/${ref.number}/head`;
-    // An agent has no terminal to answer a credential prompt: fail instead of hanging.
-    git(checkout, ['fetch', '--quiet', 'origin', pull], { GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' });
-    const at = git(checkout, ['rev-parse', 'HEAD']).trim();
-    if (at.toLowerCase() !== pr.head.toLowerCase()) {
-      throw new Error(`the checkout is at ${at}, the PR head is ${pr.head}: run git switch --detach ${pr.head}`);
-    }
+    assertAtHead(checkout, ref, pr.head);
     // Two starts at once must not both make the same round, nor drop what another command saved.
     const { l, from } = env.store.locked(ref, () => {
       const ledger = env.store.load(ref);
-      const last = ledger?.rounds.at(-1);
-      const from = !last || a.values.full === true ? mergeBase(checkout, pr.base, pr.head) : last.head;
+      const from = (a.values.full === true ? undefined : nextFrom(ledger)) ?? mergeBase(checkout, pr.base, pr.head);
       const l = startRound(ledger, ref, pr, from, env.now(), a.values.force === true);
       env.store.save(l);
       return { l, from };
@@ -42,6 +34,28 @@ const start: Command = {
     return 0;
   },
 };
+
+// A checkout already at the head needs nothing from the remote, which may not even have the pull
+// ref. Off the head, the head is fetched so that the git switch asked for can find it.
+function assertAtHead(checkout: string, ref: PrRef, head: string): void {
+  const at = git(checkout, ['rev-parse', 'HEAD']).trim();
+  if (at.toLowerCase() === head.toLowerCase()) return;
+  // The pull ref also holds heads pushed from forks, which no branch of origin has.
+  const pull = ref.host === 'github' ? `pull/${ref.number}/head` : `merge-requests/${ref.number}/head`;
+  try {
+    // An agent has no terminal to answer a credential prompt: fail instead of hanging.
+    git(checkout, ['fetch', '--quiet', 'origin', pull], { GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' });
+  } catch {
+    console.error(`warning: git fetch origin ${pull} failed, so ${head} may be missing from the checkout`);
+  }
+  throw new Error(`the checkout is at ${at}, the PR head is ${head}: run git switch --detach ${head}`);
+}
+
+// A round without a verdict may have left files unread, so the next round diffs from the head of
+// the latest round that has one; before any verdict, from where the first round did.
+function nextFrom(ledger: Ledger | null): string | undefined {
+  return ledger?.rounds.findLast((x) => x.verdict)?.head ?? ledger?.rounds[0]?.from;
+}
 
 function mergeBase(checkout: string, base: string, head: string): string {
   try {

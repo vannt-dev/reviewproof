@@ -5,26 +5,11 @@ import path from 'node:path';
 import { addFinding } from '../src/rounds.ts';
 import { LedgerStore } from '../src/store.ts';
 import type { Ledger } from '../src/types.ts';
-import { ref, removeTmp, setup, type Review } from './e2e-helper.ts';
+import { passTest, ready, ref, removeTmp, steps, type Review } from './e2e-helper.ts';
 
 test.after(removeTmp);
 
 const ledger = (s: Review) => new LedgerStore(s.home).load(ref)!;
-const passTest = ['gate', 'run', 'test', '--', process.execPath, '-e', '0'];
-
-async function steps(s: Review, ...runs: string[][]): Promise<void> {
-  for (const argv of runs) {
-    const r = await s.rp(...argv);
-    assert.equal(r.code, 0, `${argv.join(' ')}: ${r.err}`);
-  }
-}
-
-// Round 1 where verdict pass is allowed: every file read, the required gate passed.
-async function ready(): Promise<Review> {
-  const s = setup();
-  await steps(s, ['start', 'o/r#1'], ['diff'], passTest);
-  return s;
-}
 
 function blockingFile(s: Review): string {
   const file = path.join(s.root, 'blocking.json');
@@ -86,12 +71,15 @@ test('a posted round refuses every change', async () => {
     passTest,
     ['gate', 'skip', 'lint', '--reason', 'none'],
     ['skip', 'src/c.ts', '--reason', 'generated'],
+    ['diff'],
+    ['read', 'src/a.ts'],
     ['draft'],
   ];
   for (const argv of changes) {
     const r = await s.rp(...argv);
     assert.equal(r.code, 1, argv.join(' '));
     assert.match(r.err, /round 1 is already posted: start the next round/, argv.join(' '));
+    assert.equal(r.out, '', argv.join(' '));
   }
   assert.equal(ledger(s).rounds[0]?.gates.length, 1);
 });

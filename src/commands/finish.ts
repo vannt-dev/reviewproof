@@ -80,6 +80,8 @@ const post: Command = {
   about: 'post the draft and read it back (the person runs this, never the agent)',
   options: { 'approved-by': { type: 'string' } },
   async run(env, a) {
+    // Claude Code sets CLAUDECODE=1 in the commands it runs: the person posts, never the agent.
+    if (process.env.CLAUDECODE === '1') throw new Error('post from your own terminal, not from the agent');
     take(a);
     const approvedBy = (str(a, 'approved-by') ?? '').trim();
     if (approvedBy === '') throw new Error('post needs --approved-by <name of the person who read the draft>');
@@ -93,8 +95,11 @@ const post: Command = {
     // Read once, before the checks: the note checked here is the note sent.
     const body = fs.readFileSync(file, 'utf8');
     if (!round.draftAt || round.draftAt < v.at) throw new Error('the draft is older than the verdict: run reviewproof draft');
+    const cov = coverageOf(env, r);
+    // A draft edited by hand would post claims the ledger does not hold.
+    if (!sameNote(renderDraft(r.ledger, cov), body)) throw new Error('the draft file differs from the ledger: run reviewproof draft');
     // The note states this verdict, so it must still hold for the ledger as it is now.
-    const blockers = verdictBlockers(r.ledger, coverageOf(env, r), r.config, v.value, v.summary);
+    const blockers = verdictBlockers(r.ledger, cov, r.config, v.value, v.summary);
     if (blockers.length > 0) {
       console.error(`the ledger changed since the verdict: run reviewproof verdict again\n${bullets(blockers)}`);
       return 1;

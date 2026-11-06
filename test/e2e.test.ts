@@ -3,11 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { LedgerStore } from '../src/store.ts';
-import { git, ref, removeTmp, setup } from './e2e-helper.ts';
+import { git, passTest, ref, removeTmp, setup } from './e2e-helper.ts';
 
 test.after(removeTmp);
-
-const passTest = ['gate', 'run', 'test', '--', process.execPath, '-e', '0'];
 
 test('a full two-round review: refused, gated, drafted, posted, then verified', async () => {
   const s = setup();
