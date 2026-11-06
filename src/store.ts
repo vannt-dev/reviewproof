@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from './git-env.ts';
 import { writeAtomic } from './files.ts';
 import { withLock } from './lock.ts';
 import type { Ledger, PrRef } from './types.ts';
@@ -95,6 +96,6 @@ export class LedgerStore {
   }
 
   private git(...args: string[]): string {
-    return execFileSync('git', ['-C', this.home, ...args], { stdio: 'pipe', encoding: 'utf8' });
+    return execFileSync('git', ['-C', this.home, ...args], { stdio: 'pipe', encoding: 'utf8', env: gitEnv() });
   }
 }

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { gitEnv } from '../git-env.ts';
 import os from 'node:os';
 import path from 'node:path';
 import type { ParseArgsOptionsConfig } from 'node:util';
@@ -71,8 +72,7 @@ export const count = (n: number, noun: string): string => `${n} ${noun}${n === 1
 export const bullets = (lines: string[]): string => lines.map((l) => `  - ${l}`).join('\n');
 
 export function git(cwd: string, args: string[], env: Record<string, string> = {}): string {
-  const opts = { cwd, env: { ...process.env, ...env }, maxBuffer: 256 * 1024 * 1024 };
-  return execFileSync('git', args, { ...opts, encoding: 'utf8', stdio: 'pipe' });
+  return execFileSync('git', args, { cwd, env: gitEnv(env), maxBuffer: 256 * 1024 * 1024, encoding: 'utf8', stdio: 'pipe' });
 }
 
 export function checkoutOf(cwd: string): string {
