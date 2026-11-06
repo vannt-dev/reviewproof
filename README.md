@@ -7,6 +7,11 @@ post without a named person. It does not review code and calls no model: an agen
 the review, reviewproof does the bookkeeping. It was built for AI-assisted review over several
 rounds, and works for people too.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vannt-dev/reviewproof/main/docs/diagrams/overview-dark.svg">
+  <img alt="In one review round reviewproof starts a ledger for the pull request and its head sha, counts the files the agent reads, runs and logs the gates, records findings with a severity, a source and file:line@sha, refuses a verdict until the gates are finished, every changed file is read and carried findings are settled, and writes a draft; a person reads the draft and runs post, which comments on the pull request and reads the comment back, and every verdict and post is one commit in the ledger git repo." src="https://raw.githubusercontent.com/vannt-dev/reviewproof/main/docs/diagrams/overview-light.svg">
+</picture>
+
 ## Prerequisites
 
 - Node >= 22.18 for the CLI. Claude Code itself does not need Node; only this tool does.

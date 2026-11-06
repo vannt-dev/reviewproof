@@ -1,0 +1,30 @@
+%% Re-render the SVGs after editing: npm run diagrams
+flowchart LR
+  pr["Pull request<br/>GitHub or GitLab<br/>head sha"]
+  agent["Agent in the<br/>PR's checkout"]
+
+  subgraph round ["One review round"]
+    direction TB
+    start["reviewproof start"]
+    reads["Reads counted<br/>Read hook in Claude Code,<br/>or diff and read"]
+    gates["Gates<br/>gate run, append-only logs"]
+    findings["Findings<br/>add: severity, source, file:line@sha<br/>carried ones marked,<br/>withdraw needs evidence"]
+    verdict["verdict<br/>refused until gates finished,<br/>every changed file read,<br/>carried findings settled,<br/>no hedge words"]
+    draft["draft"]
+    start --> reads --> gates --> findings --> verdict --> draft
+  end
+
+  subgraph human ["The person"]
+    direction TB
+    person["Reads the draft, runs<br/>post --approved-by name<br/>in their own terminal"]
+    comment["Comment on the PR<br/>read back and compared"]
+    person --> comment
+  end
+
+  ledger[("Ledger<br/>git repo ~/.reviewproof<br/>one commit per verdict<br/>and per post<br/>export --sarif")]
+
+  pr --> round
+  agent --> round
+  round -- draft --> human
+  round -. commit .-> ledger
+  human -. commit .-> ledger
