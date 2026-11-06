@@ -13,11 +13,24 @@
   "bugs": {
     "url": "https://github.com/vannt-dev/reviewproof/issues"
   },
-  "keywords": ["code-review", "pull-request", "merge-request", "ledger", "sarif", "claude-code", "ai-review"],
+  "keywords": [
+    "code-review",
+    "pull-request",
+    "merge-request",
+    "ledger",
+    "sarif",
+    "claude-code",
+    "ai-review"
+  ],
   "bin": {
     "reviewproof": "dist/bin/reviewproof.js"
   },
-  "files": ["dist", "hooks", ".claude-plugin", "skills"],
+  "files": [
+    "dist",
+    "hooks",
+    ".claude-plugin",
+    "skills"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepack": "npm run build",
@@ -30,6 +43,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "lefthook": "^2.2.1"
   }
 }
