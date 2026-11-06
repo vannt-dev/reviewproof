@@ -128,3 +128,38 @@ test('loadConfig returns defaults when no file exists', () => {
   const cfg = loadConfig(tmpDir(), tmpDir());
   assert.deepEqual(cfg.skip, ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', '**/*.snap']);
 });
+
+test('loadConfig names the file for bad JSON and refuses a non-object', () => {
+  const checkout = tmpDir();
+  const file = path.join(checkout, '.reviewproof.json');
+  const names = (re: RegExp) => (e: Error) => e.message.includes(file) && re.test(e.message);
+  fs.writeFileSync(file, '{ nope');
+  assert.throws(() => loadConfig(checkout, tmpDir()), names(/not valid JSON/));
+  for (const text of ['null', '[]', '"x"', '3']) {
+    fs.writeFileSync(file, text);
+    assert.throws(() => loadConfig(checkout, tmpDir()), names(/must hold a JSON object/));
+  }
+});
+
+test('commit works with signing forced on, no git identity and a global hooks path', () => {
+  const home = tmpDir();
+  const hooks = tmpDir();
+  fs.writeFileSync(path.join(hooks, 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const gitconfig = path.join(tmpDir(), 'gitconfig');
+  const slashed = hooks.split(path.sep).join('/');
+  fs.writeFileSync(gitconfig, `[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = false\n[core]\n\thooksPath = ${slashed}\n`);
+  const saved = { ...process.env };
+  for (const k of ['GIT_AUTHOR_NAME', 'GIT_COMMITTER_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_EMAIL']) {
+    delete process.env[k];
+  }
+  Object.assign(process.env, { GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1', HOME: home, USERPROFILE: home });
+  try {
+    const store = new LedgerStore(home);
+    store.save(ledger);
+    store.locked(ref, () => store.commit('round 1'));
+    const log = spawnSync('git', ['-C', home, 'log', '-1', '--format=%an %s'], { encoding: 'utf8' });
+    assert.equal(log.stdout.trim(), 'reviewproof round 1');
+  } finally {
+    process.env = saved;
+  }
+});

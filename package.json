@@ -4,6 +4,16 @@
   "description": "A per-pull-request review ledger that makes review claims checkable",
   "type": "module",
   "license": "MIT",
+  "author": "vannt-dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vannt-dev/reviewproof.git"
+  },
+  "homepage": "https://github.com/vannt-dev/reviewproof#readme",
+  "bugs": {
+    "url": "https://github.com/vannt-dev/reviewproof/issues"
+  },
+  "keywords": ["code-review", "pull-request", "merge-request", "ledger", "sarif", "claude-code", "ai-review"],
   "bin": {
     "reviewproof": "dist/bin/reviewproof.js"
   },

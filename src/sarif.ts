@@ -11,6 +11,11 @@ function baselineState(f: Finding, n: number): string {
   return entry.status === 'reopened' ? 'updated' : 'absent';
 }
 
+// SARIF wants a URI reference: spaces, '#' and non-ASCII must be escaped, segment by segment.
+function uriOf(file: string): string {
+  return file.split(/[\\/]/).map(encodeURIComponent).join('/');
+}
+
 function resultOf(f: Finding, round: Round): object {
   const entry = f.history.find((h) => h.round === round.n);
   const at = entry?.location ?? f.location;
@@ -21,7 +26,7 @@ function resultOf(f: Finding, round: Round): object {
     locations: [
       {
         physicalLocation: {
-          artifactLocation: { uri: at.file.split('\\').join('/') },
+          artifactLocation: { uri: uriOf(at.file) },
           region: { startLine: at.line },
         },
       },
@@ -58,7 +63,7 @@ export function toSarif(l: Ledger, toolVersion: string, requiredGates?: string[]
   for (const f of findings) {
     if (!rules.has(f.source.ref)) rules.set(f.source.ref, { id: f.source.ref, properties: { kind: f.source.kind } });
   }
-  const gates = requiredGates ?? [...new Set(round.gates.map((g) => g.name))];
+  const gates = [...new Set([...(requiredGates ?? []), ...round.gates.map((g) => g.name)])];
   return {
     $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
     version: '2.1.0',

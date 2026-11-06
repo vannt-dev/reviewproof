@@ -67,8 +67,21 @@ export class LedgerStore {
       this.ignoreLocal();
       if (this.git('status', '--porcelain') === '') return;
       this.git('add', '-A');
-      this.git('commit', '-m', message);
+      this.git(...this.commitConfig(), 'commit', '-m', message);
     });
+  }
+
+  // This repository is ours: a user's signing, hooks path or missing identity must not stop a
+  // verdict. An empty hooksPath switches hooks off, so --no-verify is not needed.
+  private commitConfig(): string[] {
+    const args = ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath='];
+    let name = '';
+    try {
+      name = this.git('config', 'user.name').trim();
+    } catch {
+      // git config exits 1 when the key is unset
+    }
+    return name === '' ? [...args, '-c', 'user.name=reviewproof', '-c', 'user.email=reviewproof@localhost'] : args;
   }
 
   // Checkout paths, temp and lock files are this machine's, not review history. A .gitignore the

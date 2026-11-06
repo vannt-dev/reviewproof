@@ -88,6 +88,20 @@ test('one invocation per required gate, decided by the last attempt', () => {
   ]);
 });
 
+test('invocations are the union of required gates and gates that ran', () => {
+  const l = ledger();
+  l.rounds[1]?.gates.push({ name: 'extra', attempt: 1, argv: ['x'], exitCode: 0, result: 'pass', at: '' });
+  const inv = (toSarif(l, '1', ['lint']) as Out).runs[0]!.invocations;
+  assert.deepEqual(inv.map((i) => i.properties.gate).sort(), ['extra', 'lint', 'test']);
+});
+
+test('artifact uris are percent-encoded per segment', () => {
+  const l = ledger();
+  l.findings.find((x) => x.id === 'F2-1')!.location = { file: 'src/a b\\ü#.ts', line: 1, sha: 'h2' };
+  const r = (toSarif(l, '1') as Out).runs[0]!.results.find((x) => x.partialFingerprints.findingId === 'F2-1')!;
+  assert.equal(r.locations[0].physicalLocation.artifactLocation.uri, 'src/a%20b/%C3%BC%23.ts');
+});
+
 test.after(removeTmp);
 
 test('export --sarif --out writes valid SARIF JSON and prints its path', async () => {

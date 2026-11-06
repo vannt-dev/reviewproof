@@ -21,7 +21,7 @@ export function parseLocation(text: string): Location {
   }
 
   // Drive letters, UNC and rooted paths would leak the author's machine layout.
-  if (file === '' || file.startsWith('/') || file.startsWith('\\') ||/^[a-z]:/i.test(file)) {
+  if (file === '' || file.startsWith('/') || file.startsWith('\\') || /^[a-z]:/i.test(file)) {
     throw new Error(`location file "${file}" must be repo-relative`);
   }
   return { file, line: Number(lineText), sha };

@@ -47,8 +47,12 @@ reviewproof post --approved-by alice      # the person runs this, never the agen
 ```
 
 `post` sends the draft as a comment, reads it back, compares it with the draft and stores the
-comment's id and URL. After the author pushes, run `start` again: every finding still open needs
-a status before the next verdict.
+comment's id and URL. It refuses when the draft file differs from the note the ledger renders (run
+`reviewproof draft` again), and it refuses inside Claude Code (`CLAUDECODE=1`): post from your own
+terminal, not from the agent. After the author pushes, run `start` again: every finding still open
+needs a status before the next verdict. A new round diffs from the head of the most recent round
+that has a verdict, so files from a round nobody finished are still in it; with no earlier verdict
+it diffs from the merge-base, as `start --full` always does.
 
 ```sh
 reviewproof mark F1-1 verified
@@ -58,7 +62,15 @@ reviewproof mark F1-3 withdrawn --evidence "src/api/client.ts:40@3f9c2ab handles
 
 Other commands: `read <file> [--lines a-b]` counts a file read elsewhere, `skip <file> --reason R`
 leaves a changed file out of coverage, `start --force` starts a round at an unchanged head,
-`start --full` diffs from the merge-base.
+`start --full` diffs from the merge-base, `export --sarif [--out FILE]` writes the latest round as
+SARIF 2.1.0 (to FILE, or to stdout without `--out`) for code-scanning tools.
+
+`diff` prints at most 25000 characters per call. Files are printed in order while they fit; the
+others are not printed and not counted as read, and the last line (on stderr) names them:
+`not shown (too long for one call): <files> - run reviewproof diff <files>`. A file larger than
+the budget is printed alone when it is the only one asked for. Gate names start with a letter or
+digit and then hold only letters, digits, `.`, `_` and `-` (for example `test-unit`, not
+`test:unit` or `../x`).
 
 ### Findings file
 
@@ -111,10 +123,14 @@ remote. `active.json` (this machine's checkout paths) and the `*.lock` files are
 <host>/<owner>/<repo>/<number>/
   ledger.json                    # schemaVersion 1
   logs/round-<k>/<gate>-<attempt>.log
+  reads/round-<k>.jsonl          # one line per counted Read, diff or read
   drafts/round-<k>.md
+  ledger.lock                    # held while a command changes this pull request; git-ignored
 ```
 
-Gate logs have the values of `*_TOKEN` variables replaced by `***`. No credentials are stored.
+reviewproof never writes a token to disk. The values of `*_TOKEN` variables are replaced by `***` in
+gate logs and in the command line stored for each gate attempt (`ledger.json` and the SARIF
+`commandLine`).
 
 ## Prior art
 
@@ -129,9 +145,15 @@ before the gates and reads are done, measured read coverage, and the posted note
 
 ## Limits
 
-- The Read hook works in Claude Code only. A Read cut short by the token limit counts only when Claude
-  Code marks it `PARTIAL view`; reads through `cat` in a shell or Grep are not counted.
-- Other agents use `reviewproof diff` and `reviewproof read`.
+- The Read hook works in Claude Code only. A Read always counts as a line range: from `offset` (default
+  1) for `limit` lines (default 2000, the Read tool's own default). A Read cut short by the token limit
+  counts only when Claude Code marks it `PARTIAL view`; reads through `cat` in a shell or Grep are not
+  counted.
+- Other agents use `reviewproof diff` and `reviewproof read`. These are declarations, not
+  measurements: reviewproof records that the file was shown or that you said you read it, not that
+  anyone understood it.
+- On Windows a `.cmd` tool (such as `npm`) is retried through `cmd.exe`, which expands `%VAR%` in the
+  arguments.
 - The person posts by running `reviewproof post --approved-by <name>` in their own terminal. The
   PreToolUse guard stops this tool's `post` command only. It does not stop an agent that calls the
   GitHub or GitLab API itself (`gh api`, `curl`, ...).
