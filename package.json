@@ -10,6 +10,7 @@
   "files": ["dist", "hooks", ".claude-plugin", "skills"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/*.test.ts\""
   },

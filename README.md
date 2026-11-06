@@ -12,7 +12,8 @@ rounds, and works for people too.
 - Node >= 22.18 for the CLI. Claude Code itself does not need Node; only this tool does.
 - git.
 - GitHub: the `gh` CLI, logged in (`gh auth login`).
-- GitLab: a `GITLAB_TOKEN` environment variable (the `glab` CLI is used to post).
+- GitLab: a `GITLAB_TOKEN` environment variable (a token with `api` scope). reviewproof calls the
+  GitLab API itself; `glab` is not needed.
 
 Works on Windows, macOS and Linux.
 
@@ -80,7 +81,8 @@ Withdrawal evidence must contain a `file:line@sha` location or a URL.
 ## Config
 
 `.reviewproof.json` in the reviewed checkout, else `config.json` in the ledger home. The first file
-found is used whole; a missing or invalid key falls back to its default.
+found is used whole; a missing or wrong-typed key falls back to its default, but a file that is
+not valid JSON is an error.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -120,8 +122,8 @@ before the gates and reads are done, measured read coverage, and the posted note
   Code marks it `PARTIAL view`; reads through `cat` in a shell or Grep are not counted.
 - Other agents use `reviewproof diff` and `reviewproof read`.
 - The person posts by running `reviewproof post --approved-by <name>` in their own terminal. The
-  PreToolUse guard stops this tool's `post` command only. It does not stop an agent that calls
-  `gh api` or `glab api` itself.
+  PreToolUse guard stops this tool's `post` command only. It does not stop an agent that calls the
+  GitHub or GitLab API itself (`gh api`, `curl`, ...).
 - One summary note per round; no inline comments, approving or merging.
 
 ## License

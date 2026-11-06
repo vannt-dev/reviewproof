@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { runCapture } from '../src/spawn.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 const readJson = (rel: string): any => JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
@@ -29,6 +30,21 @@ test('plugin.json and marketplace.json name the plugin and match the package ver
   assert.equal(market.name, 'reviewproof');
   assert.deepEqual(market.plugins.map((p: { name: string }) => p.name), ['reviewproof']);
   assert.deepEqual(market.plugins[0].source, { source: 'npm', package: 'reviewproof' });
+});
+
+// dist/ is git-ignored and Claude Code runs no build: prepack must build it into the tarball.
+test('the npm tarball carries the built CLI and the plugin files', () => {
+  const r = runCapture(['npm', 'pack', '--dry-run', '--json'], root);
+  assert.equal(r.status, 0, r.output);
+  const files: string[] = JSON.parse(r.stdout)[0].files.map((f: { path: string }) => f.path);
+  for (const want of [
+    'dist/bin/reviewproof.js',
+    'hooks/hooks.json',
+    '.claude-plugin/plugin.json',
+    'skills/review-round/SKILL.md',
+  ]) {
+    assert.ok(files.includes(want), `${want} missing from the tarball`);
+  }
 });
 
 test('the review-round skill has its front matter and tells the agent never to post', () => {
