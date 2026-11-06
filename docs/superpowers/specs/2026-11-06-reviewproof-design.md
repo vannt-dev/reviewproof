@@ -53,7 +53,7 @@ over several rounds, and who approves what gets posted.
   attempt 1; nothing is overwritten. A gate can be recorded `not-checked` with a reason, never
   `pass` without a run. Required gates come from config.
 - **G4 Coverage.** The round's diff (round 1: merge-base of base and head..head, computed in
-  the checkout; later rounds: previous round's head..head, `--full` for merge-base..head) gives the changed files and their changed line ranges. Reads come
+  the checkout; later rounds: the head of the most recent round that has a verdict..head, else the first round's merge-base; `--full` for merge-base..head) gives the changed files and their changed line ranges. Reads come
   from (a) a Claude Code PostToolUse hook on the Read tool (file and line range), (b)
   `reviewproof diff [files]`, which prints the diff and records those files as read, (c)
   `reviewproof read <file> [--lines a-b]` for reads made elsewhere. A Read the tool cut
@@ -73,8 +73,9 @@ over several rounds, and who approves what gets posted.
   `post --approved-by <name>` sends the draft as a pull-request comment (GitHub through
   `gh api`, GitLab through `glab api`), the body passed as a UTF-8 JSON file, then reads the
   comment back, compares it with the draft and stores its id and URL. The plugin's PreToolUse
-  hook refuses `reviewproof post` from the agent, so only the person runs it (in Claude Code:
-  `! reviewproof post ...`).
+  hook refuses `reviewproof post` from the agent, and `post` itself refuses inside Claude Code
+  (`CLAUDECODE=1`), so only the person runs it, in their own terminal outside Claude Code
+  (`reviewproof post --approved-by <name>`).
 - **G7 Ledger store.** `$REVIEWPROOF_HOME` (default `~/.reviewproof`) is a git repository:
   `<host>/<owner>/<repo>/<number>/ledger.json`, `logs/round-<k>/<gate>-<attempt>.log`,
   `drafts/round-<k>.md`. The verdict and the post each make one commit

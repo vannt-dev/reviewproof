@@ -1,0 +1,34 @@
+{
+  "name": "reviewproof",
+  "version": "0.1.0",
+  "description": "A per-pull-request review ledger that makes review claims checkable",
+  "type": "module",
+  "license": "MIT",
+  "author": "vannt-dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vannt-dev/reviewproof.git"
+  },
+  "homepage": "https://github.com/vannt-dev/reviewproof#readme",
+  "bugs": {
+    "url": "https://github.com/vannt-dev/reviewproof/issues"
+  },
+  "keywords": ["code-review", "pull-request", "merge-request", "ledger", "sarif", "claude-code", "ai-review"],
+  "bin": {
+    "reviewproof": "dist/bin/reviewproof.js"
+  },
+  "files": ["dist", "hooks", ".claude-plugin", "skills"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "reviewproof",
+  "owner": { "name": "vannt-dev" },
+  "plugins": [
+    {
+      "name": "reviewproof",
+      "description": "A per-pull-request review ledger that makes review claims checkable",
+      "source": { "source": "npm", "package": "reviewproof" }
+    }
+  ]
+}
