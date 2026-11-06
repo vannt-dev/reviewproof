@@ -65,10 +65,13 @@ leaves a changed file out of coverage, `start --force` starts a round at an unch
 `start --full` diffs from the merge-base, `export --sarif [--out FILE]` writes the latest round as
 SARIF 2.1.0 (to FILE, or to stdout without `--out`) for code-scanning tools.
 
-`diff` prints at most 25000 characters per call. Files are printed in order while they fit; the
-others are not printed and not counted as read, and the last line (on stderr) names them:
-`not shown (too long for one call): <files> - run reviewproof diff <files>`. A file larger than
-the budget is printed alone when it is the only one asked for. Gate names start with a letter or
+`diff` prints at most 25000 characters per call. Files are printed in order while they fit, and
+only the printed ones count as read. Files that would fit in a later call are listed on stderr:
+`not shown (too long for one call): <files> — run reviewproof diff <files>`. A file whose diff alone
+is larger than the budget is never printed or counted read, not even when it is the only file
+asked for; stderr says `<file>: its diff is larger than one call can show; open it with Read in
+parts (each part is recorded) or record what you read with reviewproof read <file> --lines a-b`.
+Gate names start with a letter or
 digit and then hold only letters, digits, `.`, `_` and `-` (for example `test-unit`, not
 `test:unit` or `../x`).
 

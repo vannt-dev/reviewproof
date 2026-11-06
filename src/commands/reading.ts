@@ -30,19 +30,23 @@ function perFile(text: string): FileDiff[] {
 }
 
 // What an agent's tool shows of one call's output is cut short, and a file cut short was not read.
-// Files print in order while they fit; one that does not waits for a call of its own. When none
-// fits, the first prints alone, so every call moves on (a file asked for alone always prints).
-function fit(files: FileDiff[]): { shown: FileDiff[]; left: string[] } {
+// Files print in order while they fit. One that would fit a later call waits for it; one larger than
+// the whole budget is never printed (not even alone), so it can only be read in parts, which record themselves.
+function fit(files: FileDiff[]): { shown: FileDiff[]; later: string[]; tooLarge: string[] } {
   const budget = Number(process.env.REVIEWPROOF_DIFF_BUDGET) || 25000;
   const shown: FileDiff[] = [];
+  const later: string[] = [];
+  const tooLarge: string[] = [];
   let used = 0;
   for (const f of files) {
-    if (used + f.text.length > budget) continue;
-    shown.push(f);
-    used += f.text.length;
+    if (f.text.length > budget) tooLarge.push(f.file);
+    else if (used + f.text.length > budget) later.push(f.file);
+    else {
+      shown.push(f);
+      used += f.text.length;
+    }
   }
-  if (shown.length === 0 && files[0]) shown.push(files[0]);
-  return { shown, left: files.filter((f) => !shown.includes(f)).map((f) => f.file) };
+  return { shown, later, tooLarge };
 }
 
 const diff: Command = {
@@ -55,7 +59,7 @@ const diff: Command = {
     const args = ['-c', 'core.quotepath=false', 'diff', '-M', '--no-color', '--no-ext-diff', '--no-textconv'];
     args.push(seen.round.from, seen.round.head);
     if (a.positionals.length > 0) args.push('--', ...files);
-    const { shown, left } = fit(perFile(git(seen.checkout, args)));
+    const { shown, later, tooLarge } = fit(perFile(git(seen.checkout, args)));
     if (shown.length > 0) console.log(shown.map((f) => f.text).join('').replace(/\n$/, ''));
     const at = env.now().toISOString();
     // A large diff prints outside the lock; only counting the reads waits for it.
@@ -64,8 +68,14 @@ const diff: Command = {
       env.store.save(r.ledger);
     });
     console.log(`reviewproof: ${count(shown.length, 'changed file')} counted as read`);
-    if (left.length > 0) {
-      console.error(`not shown (too long for one call): ${left.join(', ')} — run reviewproof diff ${left.join(' ')}`);
+    if (later.length > 0) {
+      console.error(`not shown (too long for one call): ${later.join(', ')} — run reviewproof diff ${later.join(' ')}`);
+    }
+    for (const file of tooLarge) {
+      console.error(
+        `${file}: its diff is larger than one call can show; open it with Read in parts ` +
+          `(each part is recorded) or record what you read with reviewproof read ${file} --lines a-b`,
+      );
     }
     return 0;
   },

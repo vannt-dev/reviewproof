@@ -53,7 +53,7 @@ over several rounds, and who approves what gets posted.
   attempt 1; nothing is overwritten. A gate can be recorded `not-checked` with a reason, never
   `pass` without a run. Required gates come from config.
 - **G4 Coverage.** The round's diff (round 1: merge-base of base and head..head, computed in
-  the checkout; later rounds: previous round's head..head, `--full` for merge-base..head) gives the changed files and their changed line ranges. Reads come
+  the checkout; later rounds: the head of the most recent round that has a verdict..head, else the first round's merge-base; `--full` for merge-base..head) gives the changed files and their changed line ranges. Reads come
   from (a) a Claude Code PostToolUse hook on the Read tool (file and line range), (b)
   `reviewproof diff [files]`, which prints the diff and records those files as read, (c)
   `reviewproof read <file> [--lines a-b]` for reads made elsewhere. A Read the tool cut
