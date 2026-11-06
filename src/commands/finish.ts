@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { renderDraft } from '../draft.ts';
 import { sameNote } from '../hosts.ts';
 import { currentStatus } from '../rounds.ts';
+import type { Round } from '../types.ts';
 import { verdictBlockers } from '../verdict.ts';
 import {
   assertOpen, bullets, coverageOf, locked, openReview, prName, str, take, type Command, type Env, type Review,
@@ -89,6 +90,8 @@ const post: Command = {
     if (!v) throw new Error(`round ${round.n} has no verdict: run reviewproof verdict first`);
     const file = env.store.draftFile(r.ref, round.n);
     if (!fs.existsSync(file)) throw new Error(`round ${round.n} has no draft: run reviewproof draft`);
+    // Read once, before the checks: the note checked here is the note sent.
+    const body = fs.readFileSync(file, 'utf8');
     if (!round.draftAt || round.draftAt < v.at) throw new Error('the draft is older than the verdict: run reviewproof draft');
     // The note states this verdict, so it must still hold for the ledger as it is now.
     const blockers = verdictBlockers(r.ledger, coverageOf(env, r), r.config, v.value, v.summary);
@@ -97,27 +100,44 @@ const post: Command = {
       return 1;
     }
     await assertHead(env, r);
-    const body = fs.readFileSync(file, 'utf8');
     const host = env.host(r.ref);
     const { id, url } = await host.comment(r.ref, body);
     // Recorded before the read-back: the comment exists either way, and a re-run must not post twice.
-    // The host call ran outside the lock, so the post goes into the ledger as it is now.
-    const post = { id, url, approvedBy, at: env.now().toISOString() };
-    env.store.locked(r.ref, () => {
-      const l = env.store.load(r.ref);
-      const now = l?.rounds.find((x) => x.n === round.n);
-      if (!l || !now) throw new Error(`round ${round.n} is gone from the ledger; the note is at ${url}`);
-      if (now.post) throw new Error(`round ${round.n} was posted meanwhile at ${now.post.url}: delete ${url}`);
-      now.post = post;
-      env.store.save(l);
-      env.store.commit(`${prName(r.ref)} round ${round.n}: posted`);
-    });
+    const changed = record(env, r, v, { id, url, approvedBy, at: env.now().toISOString() });
     console.log(`posted ${url}`);
+    if (changed.length > 0) {
+      console.error(`posted note is stale: ${url} — the ledger changed while posting\n${bullets(changed)}`);
+    }
     const back = await host.readComment(r.ref, id);
-    if (sameNote(body, back)) return 0;
+    if (sameNote(body, back)) return changed.length > 0 ? 1 : 0;
     console.error(`warning: the posted note differs from the draft at ${firstDifference(body, back)}`);
     return 1;
   },
 };
+
+// The host call ran outside the lock: the post goes into the ledger as it is now, and whatever
+// changed meanwhile, so that the note no longer states the ledger, is returned.
+function record(env: Env, seen: Review, v: NonNullable<Round['verdict']>, post: NonNullable<Round['post']>): string[] {
+  try {
+    return env.store.locked(seen.ref, () => {
+      const l = env.store.load(seen.ref);
+      const now = l?.rounds.find((x) => x.n === seen.round.n);
+      if (!l || !now) throw new Error(`round ${seen.round.n} is gone from the ledger`);
+      if (now.post) throw new Error(`round ${now.n} was posted meanwhile at ${now.post.url}: delete one of the notes`);
+      const changed = [
+        ...(now.verdict?.at === v.at ? [] : ['the verdict was cleared or recorded again']),
+        ...(now.draftAt === seen.round.draftAt ? [] : ['the draft was written again']),
+        ...verdictBlockers(l, coverageOf(env, { ...seen, ledger: l, round: now }), seen.config, v.value, v.summary),
+      ];
+      now.post = post;
+      env.store.save(l);
+      env.store.commit(`${prName(seen.ref)} round ${now.n}: posted`);
+      return changed;
+    });
+  } catch (e) {
+    // The note is out there: without its URL a re-run would post it a second time.
+    throw new Error(`posted ${post.url}, but recording it failed: ${(e as Error).message}; do not post again`);
+  }
+}
 
 export const finish: Record<string, Command> = { verdict, draft, post };

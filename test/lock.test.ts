@@ -63,7 +63,7 @@ test('a fresh lock of a live process makes the call fail after the timeout and s
   const started = Date.now();
   assert.throws(
     () => withLock(lock, () => (ran = true), { timeoutMs: 200 }),
-    /^Error: ledger is locked by pid \d+ since \d{4}-\d\d-\d\dT[\d:.]+Z; try again$/,
+    /^Error: .+[\\/]ledger\.lock is locked by pid \d+ since \d{4}-\d\d-\d\dT[\d:.]+Z; try again$/,
   );
   assert.ok(Date.now() - started >= 150, 'it waited for the holder first');
   assert.equal(ran, false);

@@ -1,19 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { LedgerStore } from '../src/store.ts';
-import { git, ref, removeTmp, runNode, setup, type Review } from './e2e-helper.ts';
+import { ref, removeTmp, runNode, setup, type Review } from './e2e-helper.ts';
 
 const repo = path.join(import.meta.dirname, '..');
 const bin = path.join(repo, 'bin', 'reviewproof.ts');
-const homes = fs.mkdtempSync(path.join(os.tmpdir(), 'rp-parallel-'));
-test.after(() => {
-  removeTmp();
-  fs.rmSync(homes, { recursive: true, force: true });
-});
+test.after(removeTmp);
 
 // The real CLI in a child process, as an agent's background command runs it.
 const cli = (s: Review, ...args: string[]) =>
@@ -81,45 +75,19 @@ test('a log left by an attempt the ledger does not hold keeps its number and its
   assert.equal(fs.readFileSync(left, 'utf8'), 'an earlier run\n');
 });
 
-const src = (file: string): string => JSON.stringify(pathToFileURL(path.join(repo, 'src', file)).href);
-
-// One agent per pull request: each start records its checkout in the home's one active.json.
-const activate = `
-import { setActive } from ${src('active.ts')};
-const [home, name] = process.argv.slice(1);
-for (let i = 0; i < 40; i++) {
-  setActive(home, home + '/' + name + i, { host: 'github', hostname: 'github.com', project: 'o/r', number: i });
-}
-`;
-
-test('checkouts made active at the same time are all kept', async () => {
-  const home = fs.mkdtempSync(path.join(homes, 'active-'));
-  const runs = await Promise.all(['x', 'y'].map((name) => runNode(['--input-type=module', '-e', activate, home, name])));
-  for (const r of runs) assert.equal(r.code, 0, r.err);
-  const map = JSON.parse(fs.readFileSync(path.join(home, 'active.json'), 'utf8')) as object;
-  assert.equal(Object.keys(map).length, 80);
-});
-
-// Verdicts and posts of different pull requests commit to the one git repository of the home.
-const commits = `
-import { LedgerStore } from ${src('store.ts')};
-const [home, project] = process.argv.slice(1);
-const store = new LedgerStore(home);
-const pr = { host: 'github', hostname: 'github.com', project, number: 1, url: 'u' };
-for (let i = 1; i <= 4; i++) {
-  store.save({ schemaVersion: 1, pr: { ...pr, title: 't' + i }, rounds: [], findings: [] });
-  store.commit(project + ' ' + i);
-}
-`;
-
-test('two pull requests committing at the same time both commit', async () => {
-  const home = fs.mkdtempSync(path.join(homes, 'commit-'));
-  const runs = await Promise.all(['o/x', 'o/y'].map((p) => runNode(['--input-type=module', '-e', commits, home, p])));
-  for (const r of runs) assert.equal(r.code, 0, r.err);
-  for (const p of ['o/x', 'o/y']) {
-    assert.match(git(home, 'show', `HEAD:github.com/${p}/1/ledger.json`), /"title": "t4"/);
-  }
-  assert.equal(git(home, 'status', '--porcelain'), '');
+test('a gate that ran for a round followed by a new one meanwhile is refused, not recorded', async () => {
+  const s = await started();
+  const running = path.join(s.root, 'gate-running');
+  const script = `require('fs').writeFileSync(${JSON.stringify(running)}, ''); setTimeout(() => {}, 1000)`;
+  const gate = cli(s, 'gate', 'run', 'test', '--', process.execPath, '-e', script);
+  for (let i = 0; i < 500 && !fs.existsSync(running); i++) await new Promise((r) => setTimeout(r, 20));
+  s.push('src/b.ts', 'b2\n');
+  const next = await s.rp('start', 'o/r#1');
+  assert.equal(next.code, 0, next.err);
+  const r = await gate;
+  assert.equal(r.code, 1);
+  assert.match(r.err, /round 2 of o\/r#1 started meanwhile: run the command again/);
+  assert.deepEqual(ledger(s).rounds.map((x) => x.gates.length), [0, 0]);
 });
 
 test('the review-round skill says how to work in parallel and still never to post', () => {

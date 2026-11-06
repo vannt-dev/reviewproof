@@ -96,6 +96,20 @@ test('commit inits the repo on first use and commits with the message', () => {
   assert.equal(git('rev-list', '--count', 'HEAD'), '1');
 });
 
+test('commit adds the missing patterns to a .gitignore the home already has, once', () => {
+  const home = tmpDir();
+  const ignore = path.join(home, '.gitignore');
+  fs.writeFileSync(ignore, 'notes/\n*.tmp');
+  const store = new LedgerStore(home);
+  store.save(ledger);
+  store.locked(ref, () => store.commit('round 1'));
+  assert.equal(fs.readFileSync(ignore, 'utf8'), 'notes/\n*.tmp\nactive.json\n*.lock\n');
+  const files = spawnSync('git', ['-C', home, 'ls-files'], { encoding: 'utf8' }).stdout.trim().split('\n');
+  assert.deepEqual(files, ['.gitignore', 'gitlab.example.com/grp/sub/repo/7/ledger.json']);
+  store.commit('round 1 again');
+  assert.equal(fs.readFileSync(ignore, 'utf8'), 'notes/\n*.tmp\nactive.json\n*.lock\n');
+});
+
 test('loadConfig prefers the checkout file and fills defaults', () => {
   const checkout = tmpDir();
   const home = tmpDir();

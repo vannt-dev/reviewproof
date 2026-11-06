@@ -30,12 +30,15 @@ export class FakeHost implements Host {
   readonly comments = new Map<string, string>();
   // Set to make the host store a note other than the one sent.
   altered: string | null = null;
+  // Set to change the ledger while a note is being posted, as a command run meanwhile would.
+  meanwhile: (() => void) | null = null;
 
   async resolve(): Promise<PrInfo> {
     return { url: 'https://github.com/o/r/pull/1', title: 'Add c', head: this.head, base: this.base };
   }
 
   async comment(_ref: PrRef, body: string): Promise<{ id: string; url: string }> {
+    this.meanwhile?.();
     const id = String(101 + this.comments.size);
     this.comments.set(id, this.altered ?? body);
     return { id, url: `https://github.com/o/r/pull/1#issuecomment-${id}` };

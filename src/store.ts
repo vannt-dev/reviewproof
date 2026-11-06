@@ -1,8 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { writeAtomic } from './files.ts';
 import { withLock } from './lock.ts';
 import type { Ledger, PrRef } from './types.ts';
+
+const LOCAL_FILES = ['active.json', '*.tmp', '*.lock'];
 
 export class LedgerStore {
   private readonly home: string;
@@ -27,13 +30,9 @@ export class LedgerStore {
     return data as Ledger;
   }
 
-  // Temp file in the same folder, then rename: readers never see a half-written ledger.
+  // Readers take no lock (the hook, status), so they must never see a half-written ledger.
   save(l: Ledger): void {
-    const dir = this.dirFor(l.pr);
-    fs.mkdirSync(dir, { recursive: true });
-    const tmp = path.join(dir, `ledger.json.${process.pid}.tmp`);
-    fs.writeFileSync(tmp, `${JSON.stringify(l, null, 2)}\n`);
-    fs.renameSync(tmp, path.join(dir, 'ledger.json'));
+    writeAtomic(path.join(this.dirFor(l.pr), 'ledger.json'), `${JSON.stringify(l, null, 2)}\n`);
   }
 
   /** One PR's commands take turns: each loads, changes and saves its ledger inside `fn`. */
@@ -43,15 +42,21 @@ export class LedgerStore {
 
   // Never overwrites: a failed run stays on the record. An existing log throws EEXIST.
   writeLog(ref: PrRef, round: number, name: string, attempt: number, text: string): string {
-    return this.write(path.join(this.dirFor(ref), 'logs', `round-${round}`, `${name}-${attempt}.log`), text, 'wx');
+    const file = path.join(this.dirFor(ref), 'logs', `round-${round}`, `${name}-${attempt}.log`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text, { flag: 'wx' });
+    return file;
   }
 
   draftFile(ref: PrRef, round: number): string {
     return path.join(this.dirFor(ref), 'drafts', `round-${round}.md`);
   }
 
+  // post reads the draft without the lock: never half of one being rewritten.
   writeDraft(ref: PrRef, round: number, md: string): string {
-    return this.write(this.draftFile(ref, round), md);
+    const file = this.draftFile(ref, round);
+    writeAtomic(file, md);
+    return file;
   }
 
   // A re-run that changed nothing must not fail on git's "nothing to commit". Every PR commits to
@@ -59,19 +64,21 @@ export class LedgerStore {
   commit(message: string): void {
     withLock(path.join(this.home, 'commit.lock'), () => {
       if (!fs.existsSync(path.join(this.home, '.git'))) this.git('init');
-      // Checkout paths, temp and lock files are this machine's, not review history (a hand-made home too).
-      const ignore = path.join(this.home, '.gitignore');
-      if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, 'active.json\n*.tmp\n*.lock\n');
+      this.ignoreLocal();
       if (this.git('status', '--porcelain') === '') return;
       this.git('add', '-A');
       this.git('commit', '-m', message);
     });
   }
 
-  private write(file: string, text: string, flag = 'w'): string {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, text, { flag });
-    return file;
+  // Checkout paths, temp and lock files are this machine's, not review history. A .gitignore the
+  // home already has (hand-made, or from before the lock files) gets the missing patterns added.
+  private ignoreLocal(): void {
+    const ignore = path.join(this.home, '.gitignore');
+    const text = fs.existsSync(ignore) ? fs.readFileSync(ignore, 'utf8') : '';
+    const missing = LOCAL_FILES.filter((p) => !text.split(/\r?\n/).includes(p));
+    if (missing.length === 0) return;
+    fs.appendFileSync(ignore, `${text === '' || text.endsWith('\n') ? '' : '\n'}${missing.join('\n')}\n`);
   }
 
   private git(...args: string[]): string {

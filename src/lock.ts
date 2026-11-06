@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { codeOf, sleep, whileBusy } from './files.ts';
 
 interface Seen {
   text: string;
@@ -8,11 +9,6 @@ interface Seen {
 }
 
 const RETRY_MS = 50;
-const pause = new Int32Array(new SharedArrayBuffer(4));
-// Commands are synchronous between their awaits, so the wait is too; Atomics.wait sleeps without spinning.
-const sleep = (ms: number): void => void Atomics.wait(pause, 0, 0, ms);
-
-const codeOf = (e: unknown): unknown => (e as NodeJS.ErrnoException).code;
 
 // EPERM: the process exists but belongs to another user.
 function alive(pid: number): boolean {
@@ -59,25 +55,22 @@ function stale(seen: Seen, staleMs: number): boolean {
 }
 
 // Only while the file still holds `text`, so a lock taken over meanwhile stays its new owner's.
-// Windows refuses an unlink for a moment while another process has the file open: retried.
 // Never throws: a lock that stays behind is taken over, as its holder has exited or grown stale.
 function remove(file: string, text: string): void {
-  for (let tries = 0; tries < 20; tries++, sleep(10)) {
-    try {
-      if (fs.readFileSync(file, 'utf8') !== text) return;
-      fs.unlinkSync(file);
-      return;
-    } catch (e) {
-      if (codeOf(e) !== 'EPERM' && codeOf(e) !== 'EBUSY') return;
-    }
+  try {
+    whileBusy(() => {
+      if (fs.readFileSync(file, 'utf8') === text) fs.unlinkSync(file);
+    });
+  } catch {
+    // gone already, or still busy after the retries
   }
 }
 
 /**
  * Runs `fn` while holding `file`, which holds `{ pid, at }`; other processes wait for it. A lock
- * whose process is gone, or older than `staleMs`, is taken over. Two waiters judging the same
- * dead lock can both take it only if one's read and unlink straddle the other's whole takeover:
- * accepted, as a takeover only follows a crash.
+ * whose process is gone, or held for longer than `staleMs`, is taken over. Two waiters judging the
+ * same lock stale can both take it only if one's read and unlink straddle the other's whole
+ * takeover: accepted, as a takeover only follows a crash or a hold far longer than any command's.
  */
 export function withLock<T>(file: string, fn: () => T, opts: { timeoutMs?: number; staleMs?: number } = {}): T {
   const { timeoutMs = 10_000, staleMs = 30_000 } = opts;
@@ -87,10 +80,15 @@ export function withLock<T>(file: string, fn: () => T, opts: { timeoutMs?: numbe
   while (mine === null) {
     const seen = read(file);
     if (Date.now() >= deadline) {
-      throw new Error(`ledger is locked by pid ${seen?.pid ?? 'unknown'} since ${seen?.at ?? 'unknown'}; try again`);
+      throw new Error(`${file} is locked by pid ${seen?.pid ?? 'unknown'} since ${seen?.at ?? 'unknown'}; try again`);
     }
-    if (seen !== null && stale(seen, staleMs)) remove(file, seen.text);
-    else sleep(RETRY_MS);
+    // A stale lock is taken over at once; a takeover lost to another waiter waits its turn.
+    if (seen !== null && stale(seen, staleMs)) {
+      remove(file, seen.text);
+      mine = create(file);
+      if (mine !== null) break;
+    }
+    sleep(RETRY_MS);
     mine = create(file);
   }
   try {

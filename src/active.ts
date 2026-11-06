@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeAtomic } from './files.ts';
 import { withLock } from './lock.ts';
 import type { PrRef } from './types.ts';
 
@@ -40,12 +41,12 @@ function load(home: string): ActiveMap {
 }
 
 // Agents in other checkouts start their reviews at the same time; each change waits for the
-// one before it, or one checkout would be lost.
+// one before it, or one checkout would be lost. The hook reads without the lock: never half a file.
 function update(home: string, change: (map: ActiveMap) => void): void {
   withLock(path.join(home, 'active.lock'), () => {
     const map = load(home);
     change(map);
-    fs.writeFileSync(path.join(home, 'active.json'), `${JSON.stringify(map, null, 2)}\n`);
+    writeAtomic(path.join(home, 'active.json'), `${JSON.stringify(map, null, 2)}\n`);
   });
 }
 
