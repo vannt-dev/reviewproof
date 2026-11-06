@@ -2,9 +2,17 @@
   "name": "reviewproof",
   "description": "A per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person",
   "version": "0.1.0",
-  "author": { "name": "vannt-dev" },
+  "author": {
+    "name": "vannt-dev"
+  },
   "homepage": "https://github.com/vannt-dev/reviewproof",
   "repository": "https://github.com/vannt-dev/reviewproof",
   "license": "MIT",
-  "keywords": ["code-review", "pull-request", "merge-request", "ledger", "review"]
+  "keywords": [
+    "code-review",
+    "pull-request",
+    "merge-request",
+    "ledger",
+    "review"
+  ]
 }
