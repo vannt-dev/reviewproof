@@ -57,11 +57,15 @@ export function notChecked(round: Round, name: string, reason: string): GateAtte
   return g;
 }
 
-/** The last attempt of each required gate decides; not-checked counts as neither missing nor failed. */
-export function gateState(round: Round, required: string[]): { missing: string[]; failed: string[] } {
+/** The last attempt of each required gate decides; not-checked is neither missing nor failed. */
+export function gateState(
+  round: Round,
+  required: string[],
+): { missing: string[]; failed: string[]; notChecked: string[] } {
   const last = (name: string) => round.gates.findLast((g) => g.name === name);
   return {
     missing: required.filter((n) => !last(n)),
     failed: required.filter((n) => last(n)?.result === 'fail'),
+    notChecked: required.filter((n) => last(n)?.result === 'not-checked'),
   };
 }

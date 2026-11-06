@@ -32,7 +32,7 @@ test('a failed then a passing attempt keeps both logs and the last one decides',
   const dir = store.dirFor(ref);
   assert.ok(a1.log && a2.log && a1.log !== a2.log && !a1.log.includes('\\'));
   assert.ok(fs.existsSync(path.join(dir, a1.log)) && fs.existsSync(path.join(dir, a2.log)));
-  assert.deepEqual(gateState(round, ['test']), { missing: [], failed: [] });
+  assert.deepEqual(gateState(round, ['test']), { missing: [], failed: [], notChecked: [] });
 });
 
 test('a program that does not exist is a fail with exitCode null and the error in the log', () => {
@@ -73,7 +73,13 @@ test('notChecked needs a reason and records not-checked', () => {
 
 test('gateState lists missing, failed and not-checked names', () => {
   const { store, round, home } = setup();
-  assert.deepEqual(gateState(round, ['lint']), { missing: ['lint'], failed: [] });
+  assert.deepEqual(gateState(round, ['lint']), { missing: ['lint'], failed: [], notChecked: [] });
   runGate(store, ref, round, 'build', [node, '-e', 'process.exit(2)'], home);
-  assert.deepEqual(gateState(round, ['build', 'lint']), { missing: ['lint'], failed: ['build'] });
+  assert.deepEqual(gateState(round, ['build', 'lint']), {
+    missing: ['lint'],
+    failed: ['build'],
+    notChecked: [],
+  });
+  notChecked(round, 'lint', 'no linter');
+  assert.deepEqual(gateState(round, ['lint']), { missing: [], failed: [], notChecked: ['lint'] });
 });
