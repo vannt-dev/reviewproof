@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>reviewproof: a review ledger per pull request</title>
+    <meta
+      name="description"
+      content="A review ledger per pull request that refuses unchecked review claims: no finding without a source, no withdrawal without evidence, no verdict before the gates finish and every changed file is read, no post without a named person. For GitHub and GitLab; calls no model."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vannt-dev.github.io/reviewproof/" />
+    <meta property="og:title" content="reviewproof: a review ledger per pull request" />
+    <meta
+      property="og:description"
+      content="A review ledger per pull request that refuses unchecked review claims. It does not review code and calls no model: an agent or a person does the review, reviewproof does the bookkeeping."
+    />
+    <meta name="twitter:card" content="summary" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #111827;
+        --muted: #4b5563;
+        --line: #e5e7eb;
+        --accent: #2563eb;
+        --accent-fg: #ffffff;
+        --code-bg: #0f172a;
+        --code-fg: #e2e8f0;
+        --card: #f9fafb;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0b1020;
+          --fg: #e5e7eb;
+          --muted: #9ca3af;
+          --line: #1f2937;
+          --accent: #60a5fa;
+          --accent-fg: #0b1020;
+          --code-bg: #111827;
+          --code-fg: #e5e7eb;
+          --card: #111827;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #0b1020;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #1f2937;
+        --accent: #60a5fa;
+        --accent-fg: #0b1020;
+        --code-bg: #111827;
+        --code-fg: #e5e7eb;
+        --card: #111827;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      a {
+        color: var(--accent);
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+      header {
+        padding: 56px 0 32px;
+      }
+      nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      nav a {
+        color: var(--fg);
+        text-decoration: none;
+        margin-left: 16px;
+      }
+      nav .brand {
+        font-weight: 700;
+        margin: 0;
+      }
+      nav select {
+        font: inherit;
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      h1 {
+        font-size: clamp(32px, 6vw, 52px);
+        line-height: 1.1;
+        margin: 0 0 12px;
+        letter-spacing: -0.02em;
+      }
+      .pitch {
+        font-size: clamp(20px, 3.2vw, 26px);
+        line-height: 1.3;
+        font-weight: 600;
+        max-width: 760px;
+        margin: 0 0 16px;
+      }
+      .lead {
+        font-size: 18px;
+        color: var(--muted);
+        max-width: 760px;
+        margin: 0 0 24px;
+      }
+      .cta {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        display: inline-block;
+        padding: 10px 18px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        color: var(--fg);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .btn.primary {
+        background: var(--accent);
+        color: var(--accent-fg);
+        border-color: var(--accent);
+      }
+      pre {
+        background: var(--code-bg);
+        color: var(--code-fg);
+        padding: 18px 20px;
+        border-radius: 10px;
+        overflow-x: auto;
+        font:
+          13.5px/1.55 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        margin: 0;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.92em;
+      }
+      p code,
+      li code,
+      td code,
+      figcaption code {
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 1px 5px;
+        border-radius: 4px;
+        overflow-wrap: anywhere;
+      }
+      .dim {
+        color: #94a3b8;
+      }
+      figure {
+        margin: 0 0 32px;
+      }
+      .diagram {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+      }
+      .diagram img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 14px;
+        margin-top: 10px;
+      }
+      section {
+        padding: 32px 0;
+        border-top: 1px solid var(--line);
+      }
+      h2 {
+        font-size: 26px;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        font-size: 17px;
+        margin: 24px 0 8px;
+      }
+      .sub {
+        color: var(--muted);
+        margin: 0 0 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+        gap: 16px;
+      }
+      .grid.two {
+        grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 24px;
+      }
+      .grid2 > div > h3:first-child {
+        margin-top: 24px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+      }
+      .card h3 {
+        margin: 0 0 6px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .note {
+        color: var(--muted);
+        margin: 8px 0 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font-weight: 600;
+        width: 28%;
+      }
+      td {
+        color: var(--muted);
+      }
+      td b {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      li {
+        margin: 4px 0;
+      }
+      footer {
+        padding: 32px 0 48px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 14px;
+      }
+      footer a {
+        color: var(--fg);
+      }
+      @media (max-width: 720px) {
+        .grid2 {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .diagram img {
+          min-width: 720px;
+        }
+        th {
+          width: 34%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <p class="brand">reviewproof</p>
+        <div>
+          <a href="#refuses" data-i18n="nav.refuses">What it refuses</a>
+          <a href="#round" data-i18n="nav.round">One round</a>
+          <a href="https://github.com/vannt-dev/reviewproof">GitHub</a>
+          <a href="https://www.npmjs.com/package/reviewproof">npm</a>
+          <select id="lang" aria-label="Language">
+            <option value="en">English</option>
+            <option value="vi">Tiếng Việt</option>
+          </select>
+        </div>
+      </nav>
+
+      <header>
+        <h1>reviewproof</h1>
+        <p class="pitch" data-i18n="hero.pitch">A review ledger per pull request that refuses unchecked review claims.</p>
+        <p class="lead" data-i18n="hero.lead">
+          It refuses a finding without a source, a withdrawal without evidence, a verdict before the gates have finished and every changed
+          file has been read, and a post without a named person. It does not review code and calls no model: an agent or a person does the
+          review, reviewproof does the bookkeeping. Built for AI-assisted review over several rounds on GitHub and GitLab; it works for people
+          too.
+        </p>
+        <div class="cta">
+          <a class="btn primary" href="#start" data-i18n="cta.plugin">Install the Claude Code plugin</a>
+          <a class="btn" href="https://github.com/vannt-dev/reviewproof">GitHub</a>
+          <a class="btn" href="https://www.npmjs.com/package/reviewproof">npm</a>
+        </div>
+      </header>
+
+      <figure>
+        <div class="diagram">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="diagrams/overview-dark.svg" />
+            <img
+              src="diagrams/overview-light.svg"
+              alt="In one review round reviewproof starts a ledger for the pull request and its head sha, counts the files the agent reads, runs and logs the gates, records findings with a severity, a source and file:line@sha, refuses a verdict until the gates are finished, every changed file is read and carried findings are settled, and writes a draft; a person reads the draft and runs post, which comments on the pull request and reads the comment back, and every verdict and post is one commit in the ledger git repo."
+            />
+          </picture>
+        </div>
+        <figcaption data-i18n="fig.cap">
+          Every verdict and every post is one commit in the ledger, a git repository of its own (<code>~/.reviewproof</code>), so a review
+          never touches the reviewed repository. No token is written to disk. <a href="diagrams/overview-light.svg">Open the diagram</a>
+        </figcaption>
+      </figure>
+
+      <section id="refuses">
+        <h2 data-i18n="ref.h2">What it refuses</h2>
+        <p class="sub" data-i18n="ref.sub">
+          Each rule closes one way an AI review goes wrong: a finding nobody can trace, a file nobody opened, a verdict while the tests still
+          run, a round-1 finding quietly dropped in round 2, a note posted before a person looked at it.
+        </p>
+        <div class="grid two">
+          <div class="card">
+            <h3 data-i18n="ref.1.h">A finding without a source</h3>
+            <p data-i18n="ref.1">
+              Each finding needs a severity, a source (a rule, a design, legacy code or other, with a reference) and a place
+              <code>file:line</code>, checked at the round's head and stored as <code>file:line@sha</code>. A missing field, a file that does
+              not exist at the head or a line past its end is refused.
+            </p>
+          </div>
+          <div class="card">
+            <h3 data-i18n="ref.2.h">A withdrawal without new evidence</h3>
+            <p data-i18n="ref.2">
+              In the next round every open finding needs a status: <code>verified</code>, <code>reopened</code> at a place in the new head,
+              or <code>withdrawn</code>. Withdrawing needs evidence holding a <code>file:line@sha</code> or a URL; “the author disagrees” is
+              not evidence.
+            </p>
+          </div>
+          <div class="card">
+            <h3 data-i18n="ref.3.h">A verdict before the work is done</h3>
+            <p data-i18n="ref.3">
+              No verdict while a gate is unfinished, a changed file is unread or a carried finding has no status. Reads are measured: in
+              Claude Code a hook on the Read tool records each file and line range the agent opened. <code>pass</code> is also refused while
+              a blocking finding is open or a gate failed or was skipped, and a summary with hedge words (probably, seems, might) is refused.
+            </p>
+          </div>
+          <div class="card">
+            <h3 data-i18n="ref.4.h">A post without a named person</h3>
+            <p data-i18n="ref.4">
+              The person reads the draft and runs <code>reviewproof post --approved-by &lt;name&gt;</code> in their own terminal. It refuses
+              to run inside Claude Code, and the plugin's hook stops the agent from running it. The posted comment is read back and compared
+              with the draft.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="round">
+        <h2 data-i18n="round.h2">One round</h2>
+        <p class="sub" data-i18n="round.sub">
+          Run inside a checkout at the head of the pull request. The agent (or you) does the review; reviewproof keeps the ledger.
+        </p>
+        <pre><span class="dim">$</span> reviewproof start o/r#12                  <span class="dim"># round 1 (a URL or gitlab:g/r!7 also work)</span>
+<span class="dim">$</span> reviewproof diff                          <span class="dim"># prints the round diff, counts the files read</span>
+<span class="dim">$</span> reviewproof gate run tests -- npm test    <span class="dim"># no shell; the log is kept, a rerun is attempt 2</span>
+<span class="dim">$</span> reviewproof gate skip e2e --reason "needs a staging server"
+<span class="dim">$</span> reviewproof add findings.json             <span class="dim"># sourced findings, linted</span>
+<span class="dim">$</span> reviewproof status                        <span class="dim"># what still blocks a verdict</span>
+<span class="dim">$</span> reviewproof verdict not-yet --summary "Two findings open; tests pass."
+<span class="dim">$</span> reviewproof draft                         <span class="dim"># writes the note and prints it</span></pre>
+
+        <h3>findings.json</h3>
+        <p class="note" data-i18n="round.findings">
+          Severity: <code>blocking</code>, <code>major</code>, <code>minor</code>. Source kind: <code>rule</code>, <code>design</code>,
+          <code>legacy</code>, <code>other</code>.
+        </p>
+        <pre>[
+  {
+    "severity": "major",
+    "source": { "kind": "rule", "ref": "CONTRIBUTING.md#error-handling" },
+    "at": "src/api/client.ts:88",
+    "title": "Network errors are swallowed",
+    "body": "The catch block returns null, which callers read as 'not found'."
+  }
+]</pre>
+
+        <h3 data-i18n="round.r2.h">Round 2, after the author pushes</h3>
+        <p class="note" data-i18n="round.r2">
+          Run <code>start</code> again: every finding still open needs a status before the next verdict.
+        </p>
+        <pre><span class="dim">$</span> reviewproof start o/r#12
+<span class="dim">$</span> reviewproof mark F1-1 verified
+<span class="dim">$</span> reviewproof mark F1-2 reopened --at src/api/client.ts:91
+<span class="dim">$</span> reviewproof mark F1-3 withdrawn --evidence "src/api/client.ts:40@3f9c2ab handles it"</pre>
+
+        <h3 data-i18n="round.post.h">Then the person posts</h3>
+        <p class="note" data-i18n="round.post">
+          The agent stops at the draft. You read it and post from your own terminal, not from the agent. <code>post</code> sends the draft as
+          a comment, reads it back, compares it with the draft and stores the comment's id and URL.
+        </p>
+        <pre><span class="dim">$</span> reviewproof post --approved-by &lt;name&gt;</pre>
+        <p class="note" data-i18n="round.more">
+          Other commands: <code>read &lt;file&gt; [--lines a-b]</code> counts a file read elsewhere, <code>skip &lt;file&gt; --reason R</code>
+          leaves a changed file out of coverage, <code>export --sarif [--out FILE]</code> writes the latest round as SARIF 2.1.0 for
+          code-scanning tools.
+        </p>
+      </section>
+
+      <section id="parallel">
+        <h2 data-i18n="par.h2">Parallel reviews</h2>
+        <p class="sub" data-i18n="par.sub">
+          The ledger is locked per pull request while a command changes it, so commands run at the same time are safe: none loses another's
+          change, and a gate's log is never overwritten.
+        </p>
+        <div class="grid">
+          <div class="card">
+            <h3 data-i18n="par.1.h">Gates in the background</h3>
+            <p data-i18n="par.1">
+              Start each gate as its own background command right after <code>start</code>, and review while they run.
+              <code>status</code> shows a gate still running as missing.
+            </p>
+          </div>
+          <div class="card">
+            <h3 data-i18n="par.2.h">Helpers per file group</h3>
+            <p data-i18n="par.2">
+              Split a large diff among helper agents, one group of files each. Their Reads count, each recorded with the agent's id. The main
+              session reads the code behind every major or blocking candidate itself before <code>add</code>.
+            </p>
+          </div>
+          <div class="card">
+            <h3 data-i18n="par.3.h">One agent per pull request</h3>
+            <p data-i18n="par.3">
+              One checkout (a git worktree) and one agent per pull request. Each pull request has its own ledger, so they never wait for each
+              other.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="compare">
+        <h2 data-i18n="cmp.h2">Compared with</h2>
+        <p class="sub" data-i18n="cmp.sub">
+          Other tools cover parts of this. A survey in November 2026 found none that refuses the claims above.
+        </p>
+        <table>
+          <tr>
+            <th data-i18n="cmp.ai.h">AI reviewers</th>
+            <td data-i18n="cmp.ai">
+              <b>Copilot code review, CodeRabbit, Cursor Bugbot, Claude Code Review, Greptile.</b> They review the code and carry findings
+              across rounds, but they can resolve or drop a finding on their own.
+            </td>
+          </tr>
+          <tr>
+            <th data-i18n="cmp.viewed.h">“Viewed” marks</th>
+            <td data-i18n="cmp.viewed">
+              <b>Reviewable, Gerrit, GitHub “Viewed”.</b> Files are marked reviewed, but a person declares it; nothing measures what was
+              read.
+            </td>
+          </tr>
+          <tr>
+            <th>reviewproof</th>
+            <td data-i18n="cmp.rp">
+              Finds no bugs and calls no model, so it works with any agent, or a person. It adds the refusals: no finding without a source,
+              no withdrawal without evidence, no verdict before the gates and reads are done, measured read coverage, and the posted note read
+              back.
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="start">
+        <h2 data-i18n="gs.h2">Get started</h2>
+        <p class="sub" data-i18n="gs.sub">Works on Windows, macOS and Linux.</p>
+        <div class="grid2">
+          <div>
+            <h3 data-i18n="gs.pre.h">Prerequisites</h3>
+            <ul>
+              <li data-i18n="gs.pre.1">Node 22.18 or newer, for the CLI (Claude Code itself does not need Node).</li>
+              <li>git</li>
+              <li data-i18n="gs.pre.3">GitHub: the <code>gh</code> CLI, logged in (<code>gh auth login</code>).</li>
+              <li data-i18n="gs.pre.4">
+                GitLab: a <code>GITLAB_TOKEN</code> environment variable (a token with <code>api</code> scope). reviewproof calls the GitLab
+                API itself; <code>glab</code> is not needed.
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3>CLI</h3>
+            <pre><span class="dim">$</span> npm i -g reviewproof</pre>
+            <h3 data-i18n="gs.plugin.h">Claude Code plugin</h3>
+            <p class="note" data-i18n="gs.plugin">
+              Adds the Read and shell hooks and the <code>review-round</code> skill, which drives one round and stops at the draft.
+            </p>
+            <pre>/plugin marketplace add vannt-dev/reviewproof
+/plugin install reviewproof@reviewproof</pre>
+          </div>
+        </div>
+
+        <h3 data-i18n="gs.lim.h">Limits</h3>
+        <ul>
+          <li data-i18n="lim.1">The Read hook works in Claude Code only; reads through <code>cat</code> in a shell or Grep do not count.</li>
+          <li data-i18n="lim.2">
+            Other agents use <code>reviewproof diff</code> and <code>reviewproof read</code>: these are declarations, not measurements.
+          </li>
+          <li data-i18n="lim.3">
+            The guard stops this tool's <code>post</code> only, not an agent that calls the GitHub or GitLab API itself (<code>gh api</code>,
+            <code>curl</code>, ...).
+          </li>
+          <li data-i18n="lim.4">One summary note per round: no inline comments, no approving or merging.</li>
+          <li data-i18n="lim.5">
+            On Windows a <code>.cmd</code> tool (such as <code>npm</code>) is retried through <code>cmd.exe</code>, which expands
+            <code>%VAR%</code> in the arguments.
+          </li>
+        </ul>
+      </section>
+
+      <footer>
+        reviewproof · <a href="https://github.com/vannt-dev/reviewproof/blob/main/LICENSE">MIT</a> ·
+        <a href="https://github.com/vannt-dev/reviewproof">GitHub</a> · <a href="https://www.npmjs.com/package/reviewproof">npm</a> ·
+        <a href="https://github.com/vannt-dev">vannt-dev</a>
+      </footer>
+    </div>
+
+    <script>
+      var I18N = {
+        vi: {
+          'nav.refuses': 'Từ chối gì',
+          'nav.round': 'Một vòng review',
+          'hero.pitch': 'Sổ review riêng cho từng pull request, không nhận những lời review không kiểm chứng được.',
+          'hero.lead':
+            'reviewproof từ chối finding không có nguồn, việc rút lại finding mà không có bằng chứng, kết luận đưa ra trước khi các gate chạy xong và mọi file thay đổi đã được đọc, và việc đăng nhận xét khi chưa có tên người duyệt. Công cụ này không review code và không gọi model nào: agent hoặc người làm việc review, reviewproof lo phần sổ sách. Làm ra cho việc review có AI hỗ trợ qua nhiều vòng trên GitHub và GitLab; người review tự làm cũng dùng được.',
+          'cta.plugin': 'Cài plugin Claude Code',
+          'fig.cap':
+            'Mỗi kết luận và mỗi lần đăng là một commit trong sổ, một git repository riêng (<code>~/.reviewproof</code>), nên việc review không bao giờ đụng vào repository đang được review. Không token nào được ghi xuống đĩa. <a href="diagrams/overview-light.svg">Mở sơ đồ</a>',
+          'ref.h2': 'reviewproof từ chối những gì',
+          'ref.sub':
+            'Mỗi quy tắc chặn một kiểu review bằng AI hay hỏng: finding không ai truy được nguồn, file không ai mở, kết luận đưa ra khi test còn đang chạy, finding của vòng 1 lặng lẽ biến mất ở vòng 2, nhận xét được đăng trước khi có người xem.',
+          'ref.1.h': 'Finding không có nguồn',
+          'ref.1':
+            'Mỗi finding cần mức độ, nguồn (một quy tắc, một thiết kế, code cũ hoặc nguồn khác, kèm tham chiếu) và vị trí <code>file:line</code>, được kiểm tra tại head của vòng và lưu thành <code>file:line@sha</code>. Thiếu một trường, file không có ở head, hay dòng nằm quá cuối file đều bị từ chối.',
+          'ref.2.h': 'Rút lại mà không có bằng chứng mới',
+          'ref.2':
+            'Ở vòng sau, mọi finding còn mở cần một trạng thái: <code>verified</code>, <code>reopened</code> tại một vị trí ở head mới, hoặc <code>withdrawn</code>. Muốn rút lại phải có bằng chứng chứa <code>file:line@sha</code> hoặc một URL; “tác giả không đồng ý” không phải bằng chứng.',
+          'ref.3.h': 'Kết luận khi việc chưa xong',
+          'ref.3':
+            'Chưa có kết luận khi còn gate chưa chạy xong, còn file thay đổi chưa đọc, hoặc còn finding mang sang chưa có trạng thái. Việc đọc được đo: trong Claude Code, một hook trên công cụ Read ghi lại từng file và đoạn dòng mà agent đã mở. <code>pass</code> còn bị từ chối khi một finding blocking còn mở hoặc một gate fail hay bị bỏ qua; bản tóm tắt có từ nước đôi (probably, seems, might) cũng bị từ chối.',
+          'ref.4.h': 'Đăng khi chưa có tên người duyệt',
+          'ref.4':
+            'Người review đọc bản nháp rồi tự chạy <code>reviewproof post --approved-by &lt;name&gt;</code> trong terminal của mình. Lệnh này không chạy bên trong Claude Code, và hook của plugin chặn agent chạy nó. Comment đã đăng được đọc lại và so với bản nháp.',
+          'round.h2': 'Một vòng review',
+          'round.sub':
+            'Chạy trong checkout đang ở head của pull request. Agent (hoặc bạn) làm việc review; reviewproof giữ sổ.',
+          'round.findings':
+            'Mức độ: <code>blocking</code>, <code>major</code>, <code>minor</code>. Loại nguồn: <code>rule</code>, <code>design</code>, <code>legacy</code>, <code>other</code>.',
+          'round.r2.h': 'Vòng 2, sau khi tác giả push',
+          'round.r2': 'Chạy lại <code>start</code>: mọi finding còn mở phải có trạng thái trước kết luận tiếp theo.',
+          'round.post.h': 'Rồi người review tự đăng',
+          'round.post':
+            'Agent dừng ở bản nháp. Bạn đọc nó rồi đăng từ terminal của mình, không phải từ agent. <code>post</code> gửi bản nháp thành comment, đọc lại, so với bản nháp và lưu id cùng URL của comment.',
+          'round.more':
+            'Lệnh khác: <code>read &lt;file&gt; [--lines a-b]</code> tính một file đã đọc ở chỗ khác, <code>skip &lt;file&gt; --reason R</code> bỏ một file thay đổi ra khỏi phần phải đọc, <code>export --sarif [--out FILE]</code> xuất vòng mới nhất ra SARIF 2.1.0 cho các công cụ code scanning.',
+          'par.h2': 'Review song song',
+          'par.sub':
+            'Sổ của mỗi pull request được khóa khi một lệnh đang ghi vào, nên chạy nhiều lệnh cùng lúc vẫn an toàn: không lệnh nào làm mất thay đổi của lệnh khác, và log của gate không bao giờ bị ghi đè.',
+          'par.1.h': 'Gate chạy nền',
+          'par.1':
+            'Ngay sau <code>start</code>, chạy mỗi gate thành một lệnh nền riêng rồi review trong lúc chúng chạy. <code>status</code> coi gate còn đang chạy là missing.',
+          'par.2.h': 'Agent phụ theo nhóm file',
+          'par.2':
+            'Chia một diff lớn cho các agent phụ, mỗi agent một nhóm file. Các lần Read của chúng được tính, kèm id của từng agent. Phiên chính tự đọc code của mọi finding major hoặc blocking chúng đề xuất trước khi <code>add</code>.',
+          'par.3.h': 'Mỗi pull request một agent',
+          'par.3':
+            'Mỗi pull request một checkout (một git worktree) và một agent. Pull request nào cũng có sổ riêng, nên không bao giờ phải chờ nhau.',
+          'cmp.h2': 'So với công cụ khác',
+          'cmp.sub': 'Các công cụ khác làm được một phần. Khảo sát tháng 11/2026 không tìm thấy công cụ nào từ chối những lời review ở trên.',
+          'cmp.ai.h': 'AI review',
+          'cmp.ai':
+            '<b>Copilot code review, CodeRabbit, Cursor Bugbot, Claude Code Review, Greptile.</b> Chúng review code và mang finding qua các vòng, nhưng có thể tự đóng hoặc bỏ một finding.',
+          'cmp.viewed.h': 'Dấu “Viewed”',
+          'cmp.viewed':
+            '<b>Reviewable, Gerrit, ô “Viewed” của GitHub.</b> File được đánh dấu đã review, nhưng do người tự khai; không gì đo xem đã thực sự đọc những gì.',
+          'cmp.rp':
+            'Không tự tìm lỗi và không gọi model nào, nên dùng được với bất kỳ agent nào, hoặc với người. Nó thêm các lần từ chối: không finding nào thiếu nguồn, không rút lại khi thiếu bằng chứng, không kết luận trước khi gate và việc đọc xong, đo được độ phủ việc đọc, và đọc lại nhận xét đã đăng.',
+          'gs.h2': 'Bắt đầu',
+          'gs.sub': 'Chạy trên Windows, macOS và Linux.',
+          'gs.pre.h': 'Cần có',
+          'gs.pre.1': 'Node 22.18 trở lên cho CLI (bản thân Claude Code không cần Node).',
+          'gs.pre.3': 'GitHub: CLI <code>gh</code>, đã đăng nhập (<code>gh auth login</code>).',
+          'gs.pre.4':
+            'GitLab: biến môi trường <code>GITLAB_TOKEN</code> (token có scope <code>api</code>). reviewproof tự gọi GitLab API; không cần <code>glab</code>.',
+          'gs.plugin.h': 'Plugin Claude Code',
+          'gs.plugin':
+            'Thêm hook cho Read và shell cùng skill <code>review-round</code>; skill này chạy một vòng review rồi dừng ở bản nháp.',
+          'gs.lim.h': 'Giới hạn',
+          'lim.1': 'Hook Read chỉ chạy trong Claude Code; đọc bằng <code>cat</code> trong shell hay bằng Grep không được tính.',
+          'lim.2': 'Agent khác dùng <code>reviewproof diff</code> và <code>reviewproof read</code>: đó là khai báo, không phải đo.',
+          'lim.3':
+            'Guard chỉ chặn lệnh <code>post</code> của công cụ này, không chặn agent tự gọi GitHub hay GitLab API (<code>gh api</code>, <code>curl</code>, ...).',
+          'lim.4': 'Mỗi vòng một nhận xét tóm tắt: không comment theo dòng, không approve, không merge.',
+          'lim.5':
+            'Trên Windows, công cụ <code>.cmd</code> (như <code>npm</code>) được chạy lại qua <code>cmd.exe</code>, nên <code>%VAR%</code> trong tham số sẽ bị thay giá trị.',
+        },
+      };
+      var sel = document.getElementById('lang');
+      var EN = {};
+      document.querySelectorAll('[data-i18n]').forEach(function (el) {
+        EN[el.getAttribute('data-i18n')] = el.innerHTML;
+      });
+      function apply(lang) {
+        var dict = lang === 'en' ? EN : I18N[lang] || EN;
+        document.querySelectorAll('[data-i18n]').forEach(function (el) {
+          var k = el.getAttribute('data-i18n');
+          if (dict[k] !== undefined) el.innerHTML = dict[k];
+        });
+        document.documentElement.lang = lang;
+        sel.value = lang;
+        try {
+          localStorage.setItem('lang', lang);
+        } catch (e) {}
+      }
+      var saved = null;
+      try {
+        saved = localStorage.getItem('lang');
+      } catch (e) {}
+      var initial = saved || (navigator.language && navigator.language.toLowerCase().indexOf('vi') === 0 ? 'vi' : 'en');
+      if (initial !== 'en') apply(initial);
+      sel.addEventListener('change', function () {
+        apply(sel.value);
+      });
+    </script>
+  </body>
+</html>
