@@ -11,8 +11,9 @@ export class LedgerStore {
   }
 
   // The project may hold slashes (owner/repo, group/sub/repo): one folder per segment.
+  // A port's colon is not allowed in a Windows folder name.
   dirFor(ref: PrRef): string {
-    return path.join(this.home, ref.hostname, ...ref.project.split('/'), String(ref.number));
+    return path.join(this.home, ref.hostname.replace(/:/g, '_'),...ref.project.split('/'), String(ref.number));
   }
 
   load(ref: PrRef): Ledger | null {

@@ -38,6 +38,18 @@ test('save then load round-trips and uses the documented path', () => {
   assert.deepEqual(fs.readdirSync(store.dirFor(ref)), ['ledger.json']);
 });
 
+test('a port in the hostname becomes a valid folder name', () => {
+  const home = tmpDir();
+  const store = new LedgerStore(home);
+  const withPort: PrRef = { ...ref, hostname: 'gitlab.example.com:8443' };
+  assert.equal(
+    store.dirFor(withPort),
+    path.join(home, 'gitlab.example.com_8443', 'grp', 'sub', 'repo', '7'),
+  );
+  store.save({ ...ledger, pr: { ...ledger.pr, hostname: 'gitlab.example.com:8443' } });
+  assert.notEqual(store.load(withPort), null);
+});
+
 test('load returns null without a ledger', () => {
   assert.equal(new LedgerStore(tmpDir()).load(ref), null);
 });
