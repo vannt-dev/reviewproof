@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-export interface SpawnResult {
+interface SpawnResult {
   status: number | null;
   /** stdout alone, for callers that parse it (gh prints notices on stderr even on success). */
   stdout: string;
@@ -11,7 +11,9 @@ export interface SpawnResult {
 const OPTS = { encoding: 'utf8', windowsHide: true, maxBuffer: 256 * 1024 * 1024 } as const;
 
 // Node refuses to start npm, pnpm and yarn (.cmd shims) without a shell on Windows.
-const quote = (a: string): string => (/^[\w./:=@+-]+$/.test(a) ? a : `"${a.replace(/"/g, '""')}"`);
+// Backslashes before the closing quote are doubled so they cannot escape it.
+const quote = (a: string): string =>
+  /^[\w./:=@+-]+$/.test(a) ? a : `"${a.replace(/"/g, '""').replace(/\\+$/, '$&$&')}"`;
 
 function codeOf(e: Error | undefined): string | undefined {
   return e && 'code' in e && typeof e.code === 'string' ? e.code : undefined;

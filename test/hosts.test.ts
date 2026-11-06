@@ -26,6 +26,8 @@ test('parsePrRef: GitHub Enterprise host', () => {
 
 test('parsePrRef: rejects junk, empty and .. segments, listing the accepted forms', () => {
   assert.throws(() => parsePrRef('nonsense'), /o\/r#12/);
+  assert.throws(() => parsePrRef('o\\x/r#12'), /invalid project/);
+  assert.throws(() => parsePrRef('gitlab:g/r:x!7'), /invalid project/);
   assert.throws(() => parsePrRef('https://example.com/x'), /merge_requests/);
   assert.throws(() => parsePrRef('gitlab:g//r!7'), /project/);
   assert.throws(() => parsePrRef('https://gitlab.com/g/../r/-/merge_requests/7'), /project/);

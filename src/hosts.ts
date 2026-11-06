@@ -23,7 +23,7 @@ function bad(input: string): Error {
 // The project becomes folder names and API paths, so empty and ".." segments are refused.
 function ref(input: string, host: PrRef['host'], hostname: string, project: string, n: string): PrRef {
   const parts = project.split('/');
-  if (parts.some((p) => p === '' || p === '.' || p === '..') || (host === 'github' && parts.length !== 2)) {
+  if (parts.some((p) => p === '' || p === '.' || p === '..' || /[\\:]/.test(p)) || (host === 'github' && parts.length !== 2)) {
     throw new Error(`invalid project "${project}" in "${input}"`);
   }
   return { host, hostname, project, number: Number(n) };

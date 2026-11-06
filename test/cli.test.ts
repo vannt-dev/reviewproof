@@ -26,6 +26,7 @@ test('--help lists every command on one line each; unknown commands and options 
   for (const name of ['verdict', 'draft', 'post', 'hook']) assert.match(r.out, new RegExp(`^  ${name}\\b`, 'm'));
   assert.equal((await rp()).code, 1);
   assert.match((await rp('frob')).err, /unknown command "frob"/);
+  assert.match((await rp('constructor')).err, /unknown command "constructor"/);
   const bad = await rp('start', 'o/r#1', '--bogus');
   assert.equal(bad.code, 1);
   assert.match(bad.err, /Unknown option '--bogus'/);

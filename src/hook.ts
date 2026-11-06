@@ -3,7 +3,8 @@ import { appendRead } from './reads.ts';
 import { LedgerStore } from './store.ts';
 import type { ReadMark } from './types.ts';
 
-const POST = /\breviewproof(\.js)?\s+post\b/;
+// Also npx reviewproof@0.1.0 post, reviewproof.cmd / .ps1, a quoted ...\reviewproof.js" post, any case.
+const POST = /\breviewproof(?:[@.][^\s"']*)?["']?\s+(?:\S+\s+)*?post(?![\w.-])/i;
 
 const DENY = JSON.stringify({
   hookSpecificOutput: {
@@ -54,9 +55,12 @@ function recordRead(e: HookEvent, home: string): void {
     via: 'hook',
     at: new Date().toISOString(),
   };
-  const { offset, limit } = input;
-  // Claude Code's Read offset is a 1-based line number; a lone offset has no end, so no range.
-  if (typeof offset === 'number' && typeof limit === 'number') mark.range = [offset, offset + limit - 1];
+  // Claude Code's Read offset is a 1-based line number and it shows 2000 lines by default, so
+  // every Read covers a known range. A limit below 1 is not a real Read: nothing is recorded.
+  const offset = typeof input.offset === 'number' ? input.offset : 1;
+  const limit = typeof input.limit === 'number' ? input.limit : 2000;
+  if (limit < 1) return;
+  mark.range = [offset, offset + limit - 1];
   if (response?.includes('PARTIAL view')) mark.partial = true;
   if (typeof e.agent_id === 'string') mark.agent = e.agent_id;
   appendRead(store, active.ref, round.n, mark);

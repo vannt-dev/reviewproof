@@ -6,17 +6,21 @@ import type { PrRef } from './types.ts';
 
 type ActiveMap = Record<string, { ref: PrRef }>;
 
-// One spelling per path on every OS: realpath fixes case and 8.3 short names for paths that
-// exist; for the rest, resolve and lower-case on Windows only. Always `/` separators.
+// One spelling per path on every OS. A file that does not exist yet still sits under folders that
+// do (macOS /var -> /private/var, Windows 8.3 RUNNER~1), so realpath the nearest existing
+// ancestor and append the rest; lower-case on Windows only when nothing resolves. `/` separators.
 export function canon(p: string): string {
-  let out: string;
-  try {
-    out = fs.realpathSync.native(p);
-  } catch {
-    out = path.resolve(p);
-    if (process.platform === 'win32') out = out.toLowerCase();
+  const abs = path.resolve(p);
+  const rest: string[] = [];
+  for (let cur = abs; ; cur = path.dirname(cur)) {
+    try {
+      return path.join(fs.realpathSync.native(cur), ...rest).replace(/\\/g, '/');
+    } catch {
+      if (path.dirname(cur) === cur) break;
+      rest.unshift(path.basename(cur));
+    }
   }
-  return out.replace(/\\/g, '/');
+  return (process.platform === 'win32' ? abs.toLowerCase() : abs).replace(/\\/g, '/');
 }
 
 // Windows paths differ in case only, so compare folded there.
@@ -53,12 +57,6 @@ function update(home: string, change: (map: ActiveMap) => void): void {
 export function setActive(home: string, checkout: string, ref: PrRef): void {
   update(home, (map) => {
     map[canon(checkout)] = { ref };
-  });
-}
-
-export function clearActive(home: string, checkout: string): void {
-  update(home, (map) => {
-    delete map[canon(checkout)];
   });
 }
 

@@ -51,8 +51,8 @@ export async function run(argv: string[], deps: Deps = {}): Promise<number> {
     return words.length === 0 ? 1 : 0;
   }
   const pair = words.slice(0, 2).join(' ');
-  const name = pair in COMMANDS ? pair : (words[0] as string);
-  const cmd = COMMANDS[name];
+  const name = Object.hasOwn(COMMANDS, pair) ? pair : (words[0] as string);
+  const cmd = Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : undefined;
   if (!cmd) {
     console.error(`unknown command "${name}": see reviewproof --help`);
     return 1;

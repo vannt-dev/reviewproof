@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { LedgerStore } from '../src/store.ts';
 import { allReads } from '../src/reads.ts';
-import { activeFor, clearActive, setActive } from '../src/active.ts';
+import { activeFor, setActive } from '../src/active.ts';
 import { handleHook } from '../src/hook.ts';
 import { startRound } from '../src/rounds.ts';
 import type { PrRef } from '../src/types.ts';
@@ -54,7 +54,7 @@ test('a Read in another case with backslashes records the relative path', () => 
   assert.equal(r.length, 1);
   assert.equal(r[0]?.file, 'src/A.ts');
   assert.equal(r[0]?.via, 'hook');
-  assert.equal(r[0]?.range, undefined);
+  assert.deepEqual(r[0]?.range, [1, 2000]); // a Read with no offset or limit shows the first 2000 lines
 });
 
 test('offset and limit become a 1-based inclusive range', () => {
@@ -63,10 +63,19 @@ test('offset and limit become a 1-based inclusive range', () => {
   assert.deepEqual(reads(s)[0]?.range, [10, 29]);
 });
 
-test('only an offset records no range', () => {
+test('only an offset reads up to the default limit of 2000 lines', () => {
   const s = setup();
   handleHook(read(path.join(s.checkout, 'src', 'A.ts'), { offset: 10 }), s.home);
-  assert.equal(reads(s)[0]?.range, undefined);
+  assert.deepEqual(reads(s)[0]?.range, [10, 2009]);
+});
+
+test('limit 1 reads one line only; a limit below 1 records nothing', () => {
+  const s = setup();
+  const f = path.join(s.checkout, 'src', 'A.ts');
+  handleHook(read(f, { limit: 1 }), s.home);
+  assert.deepEqual(reads(s)[0]?.range, [1, 1]);
+  handleHook(read(f, { limit: 0 }), s.home);
+  assert.equal(reads(s).length, 1);
 });
 
 test('a PARTIAL view response marks the read partial, an object response too', () => {
@@ -127,6 +136,24 @@ test('a Bash or PowerShell reviewproof post is denied, other commands are not', 
   assert.equal(handleHook(bash('reviewproof poster'), s.home), null);
 });
 
+test('every spelling of the post command is denied', () => {
+  const s = setup();
+  const denied = (command: string): boolean =>
+    handleHook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command } }, s.home) !== null;
+  for (const c of [
+    'npx reviewproof@0.1.0 post --approved-by me',
+    'npx -y reviewproof@latest post',
+    'node "C:\\tools\\reviewproof.js" post --approved-by me',
+    'reviewproof.cmd post',
+    'reviewproof.ps1 post',
+    'REVIEWPROOF POST',
+    'reviewproof -x post',
+  ]) assert.equal(denied(c), true, c);
+  for (const c of ['reviewproof status', 'reviewproof poster', 'reviewproof diff post.ts']) {
+    assert.equal(denied(c), false, c);
+  }
+});
+
 test('malformed or unknown events return null', () => {
   const s = setup();
   assert.equal(handleHook(null, s.home), null);
@@ -134,7 +161,7 @@ test('malformed or unknown events return null', () => {
   assert.equal(handleHook({ hook_event_name: 'PostToolUse', tool_name: 'Read' }, s.home), null);
 });
 
-test('activeFor picks the longest nested checkout and clearActive removes it', () => {
+test('activeFor picks the longest nested checkout', () => {
   const home = tmpDir();
   const outer = tmpDir();
   const inner = path.join(outer, 'inner');
@@ -145,6 +172,15 @@ test('activeFor picks the longest nested checkout and clearActive removes it', (
   assert.equal(activeFor(home, path.join(inner, 'x.ts'))?.ref.number, 2);
   assert.equal(activeFor(home, path.join(outer, 'x.ts'))?.ref.number, 1);
   assert.equal(activeFor(home, inner)?.ref.number, 2); // the checkout folder itself (CLI commands)
-  clearActive(home, inner);
-  assert.equal(activeFor(home, path.join(inner, 'x.ts'))?.ref.number, 1);
+});
+
+// macOS tmp is a link (/var -> /private/var), Windows runners use 8.3 names: a not-yet-existing
+// file must still match the checkout stored under the real spelling.
+test('activeFor matches a missing file reached through a link or junction', () => {
+  const home = tmpDir();
+  const real = tmpDir();
+  const alias = path.join(tmpDir(), 'alias');
+  fs.symlinkSync(real, alias, 'junction');
+  setActive(home, real, ref);
+  assert.equal(activeFor(home, path.join(alias, 'new', 'later.ts'))?.ref.number, 1);
 });
