@@ -2,7 +2,9 @@ import path from 'node:path';
 import { changedFiles } from '../diff.ts';
 import { notChecked, runGate } from '../gates.ts';
 import type { ReadMark } from '../types.ts';
-import { count, git, openReview, str, take, type Command, type Review } from './context.ts';
+import {
+  count, git, openForChange, openReview, saveChange, str, take, type Command, type Review,
+} from './context.ts';
 
 // Paths are repo-relative, as status and coverage print them; a Windows backslash or ./ is fine.
 const repoPath = (file: string): string => file.replace(/\\/g, '/').replace(/^\.\//, '');
@@ -24,9 +26,9 @@ const gateRun: Command = {
   async run(env, a) {
     const [name] = take(a, '<name>');
     if (a.tail.length === 0) throw new Error('the gate command goes after --');
-    const r = openReview(env);
+    const r = openForChange(env);
     const g = runGate(env.store, r.ref, r.round, name, a.tail, env.cwd);
-    env.store.save(r.ledger);
+    saveChange(env, r);
     const log = path.join(env.store.dirFor(r.ref), g.log ?? '');
     console.log(`gate ${name} attempt ${g.attempt}: ${g.result} (exit code ${g.exitCode ?? 'none'}), log ${log}`);
     return g.result === 'pass' ? 0 : 1;
@@ -39,9 +41,9 @@ const gateSkip: Command = {
   options: { reason: { type: 'string' } },
   async run(env, a) {
     const [name] = take(a, '<name>');
-    const r = openReview(env);
+    const r = openForChange(env);
     const g = notChecked(r.round, name, str(a, 'reason') ?? '');
-    env.store.save(r.ledger);
+    saveChange(env, r);
     console.log(`gate ${name} attempt ${g.attempt}: not checked (${g.reason})`);
     return 0;
   },
@@ -100,10 +102,10 @@ const skip: Command = {
     const file = repoPath(take(a, '<file>')[0]);
     const reason = (str(a, 'reason') ?? '').trim();
     if (reason === '') throw new Error('skip needs --reason');
-    const r = openReview(env);
+    const r = openForChange(env);
     changedOnly(r, [file]);
     r.round.skips = [...r.round.skips.filter((s) => s.file !== file), { file, reason }];
-    env.store.save(r.ledger);
+    saveChange(env, r);
     console.log(`skipped ${file}: ${reason}`);
     return 0;
   },

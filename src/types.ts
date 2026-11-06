@@ -58,6 +58,8 @@ export interface Round {
   reads: ReadMark[];
   skips: { file: string; reason: string }[];
   verdict?: { value: 'pass' | 'not-yet'; summary: string; at: string };
+  /** When `draft` last rendered the note; post only sends a draft written after the verdict. */
+  draftAt?: string;
   post?: { id: string; url: string; approvedBy: string; at: string };
 }
 

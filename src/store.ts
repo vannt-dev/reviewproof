@@ -53,6 +53,9 @@ export class LedgerStore {
       fs.mkdirSync(this.home, { recursive: true });
       this.git('init');
     }
+    // Checkout paths and temp files are this machine's, not review history (a hand-made home too).
+    const ignore = path.join(this.home, '.gitignore');
+    if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, 'active.json\n*.tmp\n');
     if (this.git('status', '--porcelain') === '') return;
     this.git('add', '-A');
     this.git('commit', '-m', message);

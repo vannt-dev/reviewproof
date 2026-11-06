@@ -6,7 +6,9 @@ import { parsePrRef } from '../hosts.ts';
 import { lintFinding, resolveAt } from '../lint.ts';
 import { addFinding, mark, startRound } from '../rounds.ts';
 import type { Location, NewFinding } from '../types.ts';
-import { bullets, checkoutOf, count, git, lineCounter, openReview, str, take, type Command } from './context.ts';
+import {
+  bullets, checkoutOf, count, git, lineCounter, openForChange, saveChange, str, take, type Command,
+} from './context.ts';
 
 const start: Command = {
   args: '<pr> [--force] [--full]',
@@ -19,7 +21,8 @@ const start: Command = {
     const pr = await env.host(ref).resolve(ref);
     // The pull ref also holds heads pushed from forks, which no branch of origin has.
     const pull = ref.host === 'github' ? `pull/${ref.number}/head` : `merge-requests/${ref.number}/head`;
-    git(checkout, ['fetch', '--quiet', 'origin', pull]);
+    // An agent has no terminal to answer a credential prompt: fail instead of hanging.
+    git(checkout, ['fetch', '--quiet', 'origin', pull], { GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' });
     const at = git(checkout, ['rev-parse', 'HEAD']).trim();
     if (at.toLowerCase() !== pr.head.toLowerCase()) {
       throw new Error(`the checkout is at ${at}, the PR head is ${pr.head}: run git switch --detach ${pr.head}`);
@@ -49,9 +52,13 @@ const add: Command = {
   about: 'add findings: [{ severity, source: { kind, ref }, at: "file:line", title, body? }]',
   async run(env, a) {
     const [file] = take(a, '<json-file>');
-    const r = openReview(env);
+    const r = openForChange(env);
     const input: unknown = JSON.parse(fs.readFileSync(path.resolve(env.cwd, file), 'utf8'));
     if (!Array.isArray(input)) throw new Error(`${file} must hold a JSON array of findings`);
+    if (input.length === 0) {
+      console.log('no findings in the file');
+      return 0;
+    }
     const lines = lineCounter(r.checkout, r.round.head);
     const linted = input.map((x) => lintFinding(x, r.round.head, lines));
     const errors = linted.flatMap((x, i) => x.errors.map((e) => `finding ${i + 1}: ${e}`));
@@ -61,8 +68,8 @@ const add: Command = {
       return 1;
     }
     const ids = linted.map((x) => addFinding(r.ledger, x.finding as NewFinding).id);
-    env.store.save(r.ledger);
-    console.log(ids.length > 0 ? `added ${ids.join(', ')}` : 'no findings in the file');
+    saveChange(env, r);
+    console.log(`added ${ids.join(', ')}`);
     return 0;
   },
 };
@@ -76,7 +83,7 @@ const markCommand: Command = {
   async run(env, a) {
     const [id, status] = take(a, '<id>', '<status>');
     if (!STATUSES.includes(status)) throw new Error(`status must be one of ${STATUSES.join(', ')}`);
-    const r = openReview(env);
+    const r = openForChange(env);
     const atText = str(a, 'at');
     let location: Location | undefined;
     if (atText !== undefined) {
@@ -85,7 +92,7 @@ const markCommand: Command = {
       location = at.location;
     }
     mark(r.ledger, id, status as 'verified' | 'reopened' | 'withdrawn', { evidence: str(a, 'evidence'), location });
-    env.store.save(r.ledger);
+    saveChange(env, r);
     console.log(`${id}: ${status} in round ${r.round.n}`);
     return 0;
   },

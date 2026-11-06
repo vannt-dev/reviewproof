@@ -79,11 +79,14 @@ test('commit inits the repo on first use and commits with the message', () => {
   const home = tmpDir();
   const store = new LedgerStore(home);
   store.save(ledger);
+  fs.writeFileSync(path.join(home, 'active.json'), '{}');
   store.commit('round 1');
   assert.ok(fs.existsSync(path.join(home, '.git')));
   const git = (...args: string[]) => spawnSync('git', ['-C', home, ...args], { encoding: 'utf8' }).stdout.trim();
   assert.equal(git('rev-list', '--count', 'HEAD'), '1');
   assert.equal(git('log', '-1', '--format=%s'), 'round 1');
+  // Machine-local state (checkout paths, temp files) stays out of the history.
+  assert.deepEqual(git('ls-files').split('\n'), ['.gitignore', 'gitlab.example.com/grp/sub/repo/7/ledger.json']);
   // Nothing changed since: a re-run commits nothing and does not fail.
   store.commit('round 1 again');
   assert.equal(git('rev-list', '--count', 'HEAD'), '1');

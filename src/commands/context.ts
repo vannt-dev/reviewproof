@@ -70,8 +70,9 @@ export const prName = (ref: PrRef): string => `${ref.project}#${ref.number}`;
 export const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
 export const bullets = (lines: string[]): string => lines.map((l) => `  - ${l}`).join('\n');
 
-export function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe', maxBuffer: 256 * 1024 * 1024 });
+export function git(cwd: string, args: string[], env: Record<string, string> = {}): string {
+  const opts = { cwd, env: { ...process.env, ...env }, maxBuffer: 256 * 1024 * 1024 };
+  return execFileSync('git', args, { ...opts, encoding: 'utf8', stdio: 'pipe' });
 }
 
 export function checkoutOf(cwd: string): string {
@@ -112,6 +113,22 @@ export function openReview(env: Env): Review {
   const round = ledger?.rounds.at(-1);
   if (!ledger || !round) throw new Error(`no ledger for ${prName(active.ref)}: run reviewproof start <pr>`);
   return { checkout, ref: active.ref, ledger, round, config: loadConfig(checkout, env.home) };
+}
+
+/** openReview for a command that changes the round: a posted round is closed. */
+export function openForChange(env: Env): Review {
+  const r = openReview(env);
+  if (r.round.post) throw new Error(`round ${r.round.n} is already posted: start the next round`);
+  return r;
+}
+
+// The verdict and its draft described the round before this change, so both go.
+export function saveChange(env: Env, r: Review): void {
+  const cleared = r.round.verdict !== undefined;
+  delete r.round.verdict;
+  delete r.round.draftAt;
+  env.store.save(r.ledger);
+  if (cleared) console.log('verdict cleared: run reviewproof verdict again');
 }
 
 // Hook reads live in their own file, so coverage always merges them in.

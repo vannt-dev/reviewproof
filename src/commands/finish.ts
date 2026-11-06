@@ -3,7 +3,9 @@ import { renderDraft } from '../draft.ts';
 import { sameNote } from '../hosts.ts';
 import { currentStatus } from '../rounds.ts';
 import { verdictBlockers } from '../verdict.ts';
-import { assertHead, bullets, coverageOf, openReview, prName, str, take, type Command } from './context.ts';
+import {
+  assertHead, bullets, coverageOf, openForChange, openReview, prName, str, take, type Command,
+} from './context.ts';
 
 const verdict: Command = {
   args: '<pass|not-yet> --summary S',
@@ -12,8 +14,7 @@ const verdict: Command = {
   async run(env, a) {
     const [value] = take(a, '<pass|not-yet>');
     if (value !== 'pass' && value !== 'not-yet') throw new Error('the verdict is pass or not-yet');
-    const r = openReview(env);
-    if (r.round.post) throw new Error(`round ${r.round.n} is already posted: start the next round`);
+    const r = openForChange(env);
     await assertHead(env, r);
     const summary = (str(a, 'summary') ?? '').trim();
     const blockers = verdictBlockers(r.ledger, coverageOf(env, r), r.config, value, summary);
@@ -22,6 +23,8 @@ const verdict: Command = {
       return 1;
     }
     r.round.verdict = { value, summary, at: env.now().toISOString() };
+    // A draft from before this verdict is stale even within the same millisecond.
+    delete r.round.draftAt;
     env.store.save(r.ledger);
     // Open = still to be fixed: never verified or withdrawn, or reopened.
     const open = r.ledger.findings.filter((f) => ['open', 'reopened'].includes(currentStatus(f))).length;
@@ -36,9 +39,11 @@ const draft: Command = {
   about: 'write the round note and print it for the person to read',
   async run(env, a) {
     take(a);
-    const r = openReview(env);
+    const r = openForChange(env);
     const md = renderDraft(r.ledger, coverageOf(env, r));
     const file = env.store.writeDraft(r.ref, r.round.n, md);
+    r.round.draftAt = env.now().toISOString();
+    env.store.save(r.ledger);
     console.log(`${file}\n\n${md}`);
     return 0;
   },
@@ -65,9 +70,17 @@ const post: Command = {
     const r = openReview(env);
     const { round } = r;
     if (round.post) throw new Error(`round ${round.n} is already posted: ${round.post.url}`);
-    if (!round.verdict) throw new Error(`round ${round.n} has no verdict: run reviewproof verdict first`);
+    const v = round.verdict;
+    if (!v) throw new Error(`round ${round.n} has no verdict: run reviewproof verdict first`);
     const file = env.store.draftFile(r.ref, round.n);
     if (!fs.existsSync(file)) throw new Error(`round ${round.n} has no draft: run reviewproof draft`);
+    if (!round.draftAt || round.draftAt < v.at) throw new Error('the draft is older than the verdict: run reviewproof draft');
+    // The note states this verdict, so it must still hold for the ledger as it is now.
+    const blockers = verdictBlockers(r.ledger, coverageOf(env, r), r.config, v.value, v.summary);
+    if (blockers.length > 0) {
+      console.error(`the ledger changed since the verdict: run reviewproof verdict again\n${bullets(blockers)}`);
+      return 1;
+    }
     await assertHead(env, r);
     const body = fs.readFileSync(file, 'utf8');
     const host = env.host(r.ref);
