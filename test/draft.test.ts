@@ -45,3 +45,27 @@ test('table rows are this round only, pipes are escaped, skips and verdict are l
     /3 changed files \(opened with Read or reviewproof diff\); skipped: x\.lock \(config\)$/m,
   );
 });
+
+test('a finding body is in the draft under its id, and no details section without bodies', () => {
+  const l = ready();
+  assert.doesNotMatch(renderDraft(l, cov), /### Details/);
+  addFinding(l, {
+    severity: 'major',
+    source: { kind: 'rule', ref: 'CONTRIBUTING.md#errors' },
+    location: { file: 'a.ts', line: 3, sha: 'h2' },
+    title: 'Errors are swallowed',
+    body: 'The catch returns null.\n\nCallers read null as "not found".',
+  });
+  addFinding(l, {
+    severity: 'minor',
+    source: { kind: 'other', ref: 'naming' },
+    location: { file: 'b.ts', line: 1, sha: 'h2' },
+    title: 'No body here',
+  });
+  const out = renderDraft(l, cov);
+  assert.ok(
+    out.includes('### Details\n\n**F2-1 Errors are swallowed** (a.ts:3@h2)\n\nThe catch returns null.\n\nCallers read null as "not found".\n\n### Carried findings'),
+    out,
+  );
+  assert.doesNotMatch(out, /\*\*F2-2 No body here\*\*/);
+});

@@ -19,6 +19,17 @@ function carriedLine(f: Finding, round: number): string {
   return `- ${f.id} ${f.title}: ${currentStatus(f)}${proof ? ` (${proof})` : ''}`;
 }
 
+// The table holds one line per finding; the reasoning a reader needs to act on it goes below.
+function details(findings: Finding[]): string[] {
+  const withBody = findings.filter((f) => f.body?.trim());
+  if (withBody.length === 0) return [];
+  return [
+    '### Details',
+    '',
+    ...withBody.flatMap((f) => [`**${f.id} ${cell(f.title)}** (${at(f.location)})`, '', (f.body ?? '').trim(), '']),
+  ];
+}
+
 export function renderDraft(l: Ledger, cov: Coverage): string {
   const round = l.rounds[l.rounds.length - 1];
   if (!round) throw new Error('ledger has no round yet; start one first');
@@ -43,6 +54,7 @@ export function renderDraft(l: Ledger, cov: Coverage): string {
     '| --- | --- | --- | --- | --- |',
     ...rows,
     '',
+    ...details(mine),
     '### Carried findings',
     '',
     ...(earlier.length > 0 ? earlier.map((f) => carriedLine(f, round.n)) : ['none']),
