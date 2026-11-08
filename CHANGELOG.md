@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/vannt-dev/reviewproof/compare/v0.1.0...v0.2.0) (2026-11-08)
+
+
+### Features
+
+* put each finding's body in the draft ([#9](https://github.com/vannt-dev/reviewproof/issues/9)) ([f5ea9a2](https://github.com/vannt-dev/reviewproof/commit/f5ea9a277b8e21bf86160c70c59bbfb0ebd06531))
+
 ## 0.1.0 (2026-11-06)
 
 
