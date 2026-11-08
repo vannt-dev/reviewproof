@@ -7,6 +7,9 @@ import { addFinding, mark, startRound } from '../src/rounds.ts';
 import { removeTmp, setup } from './e2e-helper.ts';
 import type { Ledger, NewFinding, PrRef, Severity } from '../src/types.ts';
 
+// The tool version in SARIF is the package version, which every release bumps.
+const version = (JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { version: string }).version;
+
 const ref: PrRef = { host: 'github', hostname: 'github.com', project: 'o/r', number: 1 };
 const pr = (head: string) => ({ url: 'https://github.com/o/r/pull/1', title: 't', head, base: 'b0' });
 const nf = (title: string, severity: Severity, ruleRef = 'R1'): NewFinding => ({
@@ -113,7 +116,7 @@ test('export --sarif --out writes valid SARIF JSON and prints its path', async (
   assert.equal(r.out.trim(), file);
   const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(sarif.version, '2.1.0');
-  assert.equal(sarif.runs[0].tool.driver.version, '0.1.0');
+  assert.equal(sarif.runs[0].tool.driver.version, version);
   assert.equal(sarif.runs[0].invocations[0].properties.gate, 'test');
   assert.equal((await s.rp('export')).code, 1);
 });
