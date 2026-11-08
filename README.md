@@ -53,6 +53,9 @@ reviewproof draft                         # writes the note and prints it
 reviewproof post --approved-by alice      # the person runs this, never the agent
 ```
 
+The draft holds the verdict, a table of the round's findings with each finding's body below it,
+the carried findings with their status, the gates and the read coverage.
+
 `post` sends the draft as a comment, reads it back, compares it with the draft and stores the
 comment's id and URL. It refuses when the draft file differs from the note the ledger renders (run
 `reviewproof draft` again), and it refuses inside Claude Code (`CLAUDECODE=1`): post from your own
