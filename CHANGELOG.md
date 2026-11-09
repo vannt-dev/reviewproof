@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/vannt-dev/reviewproof/compare/v0.2.0...v0.3.0) (2026-11-09)
+
+
+### Features
+
+* **gates:** a run counts only at the round's head, on a clean checkout ([#12](https://github.com/vannt-dev/reviewproof/issues/12)) ([11dd12a](https://github.com/vannt-dev/reviewproof/commit/11dd12a2556f8be46474cfe6d105c7b7f938784d))
+
 ## [0.2.0](https://github.com/vannt-dev/reviewproof/compare/v0.1.0...v0.2.0) (2026-11-08)
 
 
