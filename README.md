@@ -56,6 +56,13 @@ reviewproof post --approved-by alice      # the person runs this, never the agen
 The draft holds the verdict, a table of the round's findings with each finding's body below it,
 the carried findings with their status, the gates and the read coverage.
 
+A gate's evidence is for the round's head. Each attempt records the commit the checkout was at and
+whether tracked files had uncommitted changes; an attempt at another commit, or with changes, does
+not count, and `gate run` says so. The verdict then asks for a new run (`gate test ran at 1a2b3c4,
+not at the round's head 5d6e7f8: run it again`). Attempts are only added, never replaced: the draft
+shows each gate's last result, the commit it ran at and the attempts that failed before it
+(`- test: pass at 5d6e7f8, 2 attempts (attempt 1 failed)`).
+
 `post` sends the draft as a comment, reads it back, compares it with the draft and stores the
 comment's id and URL. It refuses when the draft file differs from the note the ledger renders (run
 `reviewproof draft` again), and it refuses inside Claude Code (`CLAUDECODE=1`): post from your own

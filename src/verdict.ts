@@ -18,6 +18,10 @@ export function verdictBlockers(
   const pass = value === 'pass';
   const gates = gateState(round, cfg.requiredGates);
   const out: string[] = gates.missing.map((n) => `gate ${n} missing`);
+  for (const s of gates.stale) {
+    const again = s.why.startsWith('ran with') ? 'run it again on a clean checkout' : 'run it again';
+    out.push(`gate ${s.name} ${s.why}: ${again}`);
+  }
   if (pass) {
     out.push(...gates.failed.map((n) => `gate ${n} failed`));
     for (const n of gates.notChecked) {
