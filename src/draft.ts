@@ -56,9 +56,8 @@ export function renderDraft(l: Ledger, cov: Coverage): string {
     '',
     '### Findings',
     '',
-    '| id | severity | source | location | title |',
-    '| --- | --- | --- | --- | --- |',
-    ...rows,
+    // A table with no rows renders as a lone header; say none, as the other sections do.
+    ...(rows.length > 0 ? ['| id | severity | source | location | title |', '| --- | --- | --- | --- | --- |', ...rows] : ['none']),
     '',
     ...details(mine),
     '### Carried findings',

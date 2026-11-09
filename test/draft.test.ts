@@ -20,6 +20,9 @@ test('the draft of a ready two-round ledger shows carried status, gates and cove
   assert.match(out, /read 3 of 3 changed files \(opened with Read or reviewproof diff\)$/m);
   assert.match(out, /not decided yet/);
   assert.equal(renderDraft(l, cov), out);
+  // round 2 added no finding: "none", not a table header with no rows
+  assert.match(out, /### Findings\n\nnone\n/);
+  assert.doesNotMatch(out, /\| id \| severity \|/);
 });
 
 test('table rows are this round only, pipes are escaped, skips and verdict are listed', () => {
