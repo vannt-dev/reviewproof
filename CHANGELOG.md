@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/vannt-dev/reviewproof/compare/v0.3.0...v0.3.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **draft:** a round with no new finding says none, not an empty table ([#16](https://github.com/vannt-dev/reviewproof/issues/16)) ([f61dccc](https://github.com/vannt-dev/reviewproof/commit/f61dccc1086d7cc0810b24a887a5f7863710b0d5))
+
 ## [0.3.0](https://github.com/vannt-dev/reviewproof/compare/v0.2.0...v0.3.0) (2026-11-09)
 
 
