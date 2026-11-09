@@ -295,6 +295,46 @@
           width: 34%;
         }
       }
+      /* The replay of a recorded round (#replay). Without JavaScript the whole log shows. */
+      .rp-controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+      .rp-controls button,
+      .rp-gate button {
+        font: 600 14px system-ui, sans-serif;
+        border-radius: 8px;
+        padding: 7px 14px;
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--fg);
+      }
+      .rp-controls .primary,
+      .rp-gate button { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+      .rp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+      @media (max-width: 860px) { .rp-grid { grid-template-columns: minmax(0, 1fr); } }
+      pre.rp-log { max-height: 440px; overflow: auto; font-size: 12.5px; white-space: pre; }
+      .rp-log .ln { display: block; min-height: 1.55em; }
+      .rp-log .cmd { color: #93c5fd; }
+      .rp-log .note { color: #94a3b8; font-style: italic; }
+      .rp-log .dim { color: #64748b; }
+      .rp-log .busy::after { content: ' \258D'; animation: rp-blink 1s steps(2, start) infinite; }
+      @keyframes rp-blink { to { visibility: hidden; } }
+      .replay.armed .rp-log .ln:not(.on) { display: none; }
+      .replay.armed pre.rp-log { min-height: 440px; }
+      .rp-hint { display: none; color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+      .replay.armed.idle .rp-hint { display: block; }
+      .rp-side { display: grid; gap: 14px; }
+      .rp-steps { margin: 0; padding-left: 20px; color: var(--muted); }
+      .rp-steps li { margin: 2px 0; }
+      .rp-steps li.past { color: var(--fg); }
+      .rp-steps li.now { color: var(--accent); font-weight: 700; }
+      .rp-meters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+      .rp-meters div { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+      .rp-meters dt { font-size: 12px; color: var(--muted); }
+      .rp-meters dd { margin: 2px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .rp-gate { border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+      .rp-gate p { margin: 0 0 8px; }
+      .rp-note { font-size: 13px; color: var(--muted); margin: 0; }
+      @media (prefers-reduced-motion: reduce) { .rp-log .busy::after { animation: none; } }
     </style>
   </head>
   <body>
@@ -438,6 +478,49 @@
           leaves a changed file out of coverage, <code>export --sarif [--out FILE]</code> writes the latest round as SARIF 2.1.0 for
           code-scanning tools.
         </p>
+      </section>
+
+      <section id="replay" class="replay">
+        <h2 data-i18n="rp.h2">A real review, replayed</h2>
+        <p class="sub" data-i18n="rp.sub">
+          reviewproof 0.3.0 on a pull request of lane made for this recording: it drops a check on purpose. Two rounds,
+          <span id="rp-total">82</span> seconds of real time; every line is what the commands printed.
+        </p>
+        <div class="rp-controls">
+          <button type="button" class="primary" id="rp-play" data-i18n="rp.play" hidden>Play</button>
+          <button type="button" id="rp-pause" data-i18n="rp.pause" hidden>Pause</button>
+          <button type="button" id="rp-restart" data-i18n="rp.restart" hidden>Restart</button>
+        </div>
+        <p class="rp-hint" data-i18n="rp.hint">Press Play to watch the review.</p>
+        <div class="rp-grid">
+          <div><!-- replay:log --><pre class="rp-log" id="rp-log" tabindex="0"><span class="ln cmd" data-step="0" data-sec="1" data-round="1">$ reviewproof start vannt-dev/lane#26</span><span class="ln">round 1 of https://github.com/vannt-dev/lane/pull/26: head dd390f5e187c268ddba3d85b8173ded06ccbc97d, 1 changed file since 735f54cf5008ef59bc8750e19d1924134c98f7b0</span><span class="ln cmd" data-step="0" data-sec="1" data-round="1">$ reviewproof diff</span><span class="ln">diff --git a/src/sparse.ts b/src/sparse.ts</span><span class="ln">index b3d29f9..0cc9f81 100644</span><span class="ln">--- a/src/sparse.ts</span><span class="ln">+++ b/src/sparse.ts</span><span class="ln">@@ -13,7 +13,8 @@ export function sparseDirs(input: readonly string[]): string[] {</span><span class="ln">   for (const raw of input) {</span><span class="ln">     const dir = raw.trim().replace(/\\/g, '/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');</span><span class="ln">     const parts = dir.split('/');</span><span class="ln">-    const outside = dir === '' || dir.startsWith('/') || /^[A-Za-z]:/.test(dir) || parts.some((p) =&gt; p === '' || p === '.' || p === '..');</span><span class="ln">+    // '..' is fine: git keeps the folder inside the checkout anyway</span><span class="ln">+    const outside = dir === '' || dir.startsWith('/') || /^[A-Za-z]:/.test(dir) || parts.some((p) =&gt; p === '' || p === '.');</span><span class="ln">     if (outside || /[*?[\]!]/.test(dir)) throw new Error(`--sparse takes folders inside the repository, like app/web: "${raw}" is not one`);</span><span class="ln">     if (!out.includes(dir)) out.push(dir);</span><span class="ln">   }</span><span class="ln">reviewproof: 1 changed file counted as read</span><span class="ln cmd" data-step="1" data-sec="36" data-round="1" data-gate="fail">$ reviewproof gate run test -- npm test</span><span class="ln">gate test attempt 1: fail (exit code 1), log F:\demo\rp\github.com\vannt-dev\lane\26\logs\round-1\test-1.log</span><span class="ln note" data-step="2" data-sec="0" data-round="1" data-gate="fail"># the agent writes findings.json from what it read and the failing test</span><span class="ln cmd" data-step="2" data-sec="0" data-round="1" data-gate="fail" data-open="1">$ reviewproof add findings.json</span><span class="ln">added F1-1</span><span class="ln cmd" data-step="2" data-sec="1" data-round="1" data-gate="fail" data-open="1" data-verdict="refused">$ reviewproof verdict pass --summary "Ready to merge."</span><span class="ln">verdict pass refused:</span><span class="ln">  - gate test failed</span><span class="ln">  - blocking finding F1-1 is open</span><span class="ln cmd" data-step="2" data-sec="1" data-round="1" data-gate="fail" data-open="1" data-verdict="not-yet">$ reviewproof verdict not-yet --summary "One blocking finding: --sparse takes ../ folders; the tests fail."</span><span class="ln">round 1: not-yet, 1 open; next: reviewproof draft</span><span class="ln cmd" data-step="3" data-sec="0" data-round="1" data-gate="fail" data-open="1" data-verdict="not-yet">$ reviewproof draft</span><span class="ln">F:\demo\rp\github.com\vannt-dev\lane\26\drafts\round-1.md</span><span class="ln"></span><span class="ln">## Review round 1 (head dd390f5e187c268ddba3d85b8173ded06ccbc97d)</span><span class="ln"></span><span class="ln">**Verdict: not-yet.** One blocking finding: --sparse takes ../ folders; the tests fail.</span><span class="ln"></span><span class="ln">### Findings</span><span class="ln"></span><span class="ln">| id | severity | source | location | title |</span><span class="ln">| --- | --- | --- | --- | --- |</span><span class="ln">| F1-1 | blocking | rule: README.md#big-repositories-sparse-slots | src/sparse.ts:17@dd390f5e187c268ddba3d85b8173ded06ccbc97d | --sparse takes a folder outside the repository again |</span><span class="ln"></span><span class="ln">### Details</span><span class="ln"></span><span class="ln">**F1-1 --sparse takes a folder outside the repository again** (src/sparse.ts:17@dd390f5e187c268ddba3d85b8173ded06ccbc97d)</span><span class="ln"></span><span class="ln">Without the .. check, sparseDirs accepts ../other and a/../../b; the README says --sparse takes folders inside the repository, and the test of sparseDirs fails.</span><span class="ln"></span><span class="ln">### Carried findings</span><span class="ln"></span><span class="ln">none</span><span class="ln"></span><span class="ln">### Gates</span><span class="ln"></span><span class="ln">- test: fail at dd390f5, 1 attempt</span><span class="ln"></span><span class="ln">### Coverage</span><span class="ln"></span><span class="ln">read 1 of 1 changed files (opened with Read or reviewproof diff)</span><span class="ln note" data-step="3" data-sec="0" data-round="1" data-gate="fail" data-open="1" data-verdict="not-yet"># the agent tries to post the note itself</span><span class="ln cmd" data-step="3" data-sec="0" data-round="1" data-gate="fail" data-open="1" data-verdict="not-yet">$ reviewproof post --approved-by vannt-dev</span><span class="ln">reviewproof post: post from your own terminal, not from the agent</span><span class="ln note gate" data-step="4" data-sec="0" data-round="1" data-gate="fail" data-open="1" data-verdict="not-yet"># you read the draft and post it from your own terminal</span><span class="ln note" data-step="0" data-sec="0" data-round="1" data-gate="fail" data-open="1" data-verdict="not-yet"># the author pushes a fix</span><span class="ln cmd" data-step="5" data-sec="1" data-round="2" data-gate="fail" data-open="1" data-verdict="not-yet">$ reviewproof start vannt-dev/lane#26</span><span class="ln">round 2 of https://github.com/vannt-dev/lane/pull/26: head 18bc345767617c8949596c3c4ad38944b6f43d7b, 1 changed file since dd390f5e187c268ddba3d85b8173ded06ccbc97d</span><span class="ln cmd" data-step="5" data-sec="0" data-round="2" data-gate="fail" data-open="1" data-verdict="not-yet">$ reviewproof diff</span><span class="ln">diff --git a/src/sparse.ts b/src/sparse.ts</span><span class="ln">index 0cc9f81..b3d29f9 100644</span><span class="ln">--- a/src/sparse.ts</span><span class="ln">+++ b/src/sparse.ts</span><span class="ln">@@ -13,8 +13,7 @@ export function sparseDirs(input: readonly string[]): string[] {</span><span class="ln">   for (const raw of input) {</span><span class="ln">     const dir = raw.trim().replace(/\\/g, '/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');</span><span class="ln">     const parts = dir.split('/');</span><span class="ln">-    // '..' is fine: git keeps the folder inside the checkout anyway</span><span class="ln">-    const outside = dir === '' || dir.startsWith('/') || /^[A-Za-z]:/.test(dir) || parts.some((p) =&gt; p === '' || p === '.');</span><span class="ln">+    const outside = dir === '' || dir.startsWith('/') || /^[A-Za-z]:/.test(dir) || parts.some((p) =&gt; p === '' || p === '.' || p === '..');</span><span class="ln">     if (outside || /[*?[\]!]/.test(dir)) throw new Error(`--sparse takes folders inside the repository, like app/web: "${raw}" is not one`);</span><span class="ln">     if (!out.includes(dir)) out.push(dir);</span><span class="ln">   }</span><span class="ln">reviewproof: 1 changed file counted as read</span><span class="ln cmd" data-step="5" data-sec="39" data-round="2" data-gate="pass" data-open="1" data-verdict="not-yet">$ reviewproof gate run test -- npm test</span><span class="ln">gate test attempt 1: pass (exit code 0), log F:\demo\rp\github.com\vannt-dev\lane\26\logs\round-2\test-1.log</span><span class="ln cmd" data-step="5" data-sec="0" data-round="2" data-gate="pass" data-open="0" data-verdict="not-yet">$ reviewproof mark F1-1 verified</span><span class="ln">F1-1: verified in round 2</span><span class="ln cmd" data-step="5" data-sec="2" data-round="2" data-gate="pass" data-open="0" data-verdict="pass">$ reviewproof verdict pass --summary "The .. check is back and the tests pass."</span><span class="ln">round 2: pass, 0 open; next: reviewproof draft</span><span class="ln cmd" data-step="5" data-sec="0" data-round="2" data-gate="pass" data-open="0" data-verdict="pass">$ reviewproof draft</span><span class="ln">F:\demo\rp\github.com\vannt-dev\lane\26\drafts\round-2.md</span><span class="ln"></span><span class="ln">## Review round 2 (head 18bc345767617c8949596c3c4ad38944b6f43d7b)</span><span class="ln"></span><span class="ln">**Verdict: pass.** The .. check is back and the tests pass.</span><span class="ln"></span><span class="ln">### Findings</span><span class="ln"></span><span class="ln">| id | severity | source | location | title |</span><span class="ln">| --- | --- | --- | --- | --- |</span><span class="ln"></span><span class="ln">### Carried findings</span><span class="ln"></span><span class="ln">- F1-1 --sparse takes a folder outside the repository again: verified</span><span class="ln"></span><span class="ln">### Gates</span><span class="ln"></span><span class="ln">- test: pass at 18bc345, 1 attempt</span><span class="ln"></span><span class="ln">### Coverage</span><span class="ln"></span><span class="ln">read 1 of 1 changed files (opened with Read or reviewproof diff)</span></pre><!-- /replay:log --></div>
+          <div class="card rp-side">
+            <ol class="rp-steps" id="rp-steps">
+              <li data-i18n="rp.s0">Round 1: the diff is read</li>
+              <li data-i18n="rp.s1">The test gate fails</li>
+              <li data-i18n="rp.s2">A sourced finding; pass is refused</li>
+              <li data-i18n="rp.s3">The draft; the agent cannot post it</li>
+              <li data-i18n="rp.s4">You read the draft and post it</li>
+              <li data-i18n="rp.s5">Round 2: the fix is checked and verified</li>
+            </ol>
+            <dl class="rp-meters">
+              <div><dt data-i18n="rp.m.round">Round</dt><dd><span id="rp-round">2</span></dd></div>
+              <div><dt data-i18n="rp.m.gate">Test gate</dt><dd><span id="rp-gate">pass</span></dd></div>
+              <div><dt data-i18n="rp.m.open">Open findings</dt><dd><span id="rp-open">0</span></dd></div>
+              <div><dt data-i18n="rp.m.verdict">Verdict</dt><dd><span id="rp-verdict">pass</span></dd></div>
+            </dl>
+            <div class="rp-gate" id="rp-wait" hidden>
+              <p data-i18n="rp.wait">Your turn: you read the draft, then post it from your own terminal.</p>
+              <button type="button" id="rp-go" data-i18n="rp.go">Post</button>
+            </div>
+            <p class="rp-note" data-i18n="rp.note">
+              A recording, not a live system. Nothing was posted: the person's post is the step the replay waits for. The pull request
+              was closed after the recording. Recorded with
+              <a href="https://github.com/vannt-dev/reviewproof/blob/main/docs/replay/record.sh">replay/record.sh</a>; the raw output is
+              <a href="https://github.com/vannt-dev/reviewproof/blob/main/docs/replay/reviewproof.jsonl">replay/reviewproof.jsonl</a>.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section id="parallel">
@@ -633,6 +716,27 @@
           'lim.4': 'Mỗi vòng một nhận xét tóm tắt: không comment theo dòng, không approve, không merge.',
           'lim.5':
             'Trên Windows, công cụ <code>.cmd</code> (như <code>npm</code>) được chạy lại qua <code>cmd.exe</code>, nên <code>%VAR%</code> trong tham số sẽ bị thay giá trị.',
+          'rp.h2': 'Một lần review thật, phát lại',
+          'rp.sub':
+            'reviewproof 0.3.0 trên một pull request của lane làm riêng cho bản ghi này: nó cố ý bỏ một dòng kiểm tra. Hai vòng, <span id="rp-total">82</span> giây chạy thật; mọi dòng đều là output thật của các lệnh.',
+          'rp.play': 'Phát',
+          'rp.pause': 'Tạm dừng',
+          'rp.restart': 'Phát lại từ đầu',
+          'rp.hint': 'Bấm Phát để xem lần review.',
+          'rp.s0': 'Vòng 1: đọc diff',
+          'rp.s1': 'Gate test fail',
+          'rp.s2': 'Một finding có nguồn; pass bị từ chối',
+          'rp.s3': 'Bản nháp; agent không tự đăng được',
+          'rp.s4': 'Bạn đọc bản nháp rồi đăng',
+          'rp.s5': 'Vòng 2: bản sửa được kiểm tra và xác nhận',
+          'rp.m.round': 'Vòng',
+          'rp.m.gate': 'Gate test',
+          'rp.m.open': 'Finding đang mở',
+          'rp.m.verdict': 'Kết luận',
+          'rp.wait': 'Tới lượt bạn: đọc bản nháp, rồi đăng từ terminal của chính bạn.',
+          'rp.go': 'Đăng',
+          'rp.note':
+            'Đây là bản ghi, không phải hệ thống đang chạy. Không có gì được đăng: việc người đăng là bước mà phần phát lại chờ. Pull request đã được đóng sau khi ghi. Ghi bằng <a href="https://github.com/vannt-dev/reviewproof/blob/main/docs/replay/record.sh">replay/record.sh</a>; output gốc ở <a href="https://github.com/vannt-dev/reviewproof/blob/main/docs/replay/reviewproof.jsonl">replay/reviewproof.jsonl</a>.',
         },
       };
       var sel = document.getElementById('lang');
@@ -661,6 +765,131 @@
       sel.addEventListener('change', function () {
         apply(sel.value);
       });
+    </script>
+    <script>
+      // Replays the recorded review (#replay). Without JavaScript, or with reduced motion, the whole
+      // log and the final numbers stay as they are in the markup.
+      (function () {
+        var box = document.getElementById('replay');
+        if (!box) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+        var log = $('rp-log'), play = $('rp-play'), pause = $('rp-pause'), restart = $('rp-restart');
+        var gate = $('rp-wait'), go = $('rp-go');
+        var steps = Array.prototype.slice.call(document.querySelectorAll('#rp-steps li'));
+        var lines = Array.prototype.slice.call(log.querySelectorAll('.ln')).map(function (el) {
+          var typed = el.classList.contains('cmd') || el.classList.contains('note');
+          return { el: el, text: el.textContent, typed: typed, gate: el.classList.contains('gate'), d: el.dataset };
+        });
+        var METERS = ['round', 'gate', 'open', 'verdict'];
+        // ms per typed character, per real second of a command, per printed line
+        var TICK = 40, CHAR = 26, PER_SEC = 220, LINE = 30;
+        var i, t, typing, playing, waiting, timer;
+
+        function show(l) {
+          l.el.classList.add('on');
+          log.scrollTop = log.scrollHeight;
+        }
+        function meters(d) {
+          METERS.forEach(function (k) {
+            if (d[k] !== undefined) $('rp-' + k).textContent = d[k];
+          });
+        }
+        function mark(n) {
+          steps.forEach(function (s, k) {
+            s.classList.toggle('now', k === n);
+            s.classList.toggle('past', k < n);
+          });
+        }
+        function buttons() {
+          var end = i >= lines.length;
+          play.hidden = playing || end || waiting;
+          pause.hidden = !playing;
+          restart.hidden = !playing && i === 0 && t === 0;
+        }
+        function stop() {
+          playing = false;
+          clearInterval(timer);
+          buttons();
+        }
+        function start() {
+          if (playing || waiting) return;
+          playing = true;
+          box.classList.remove('idle');
+          timer = setInterval(tick, TICK);
+          buttons();
+        }
+        function reset() {
+          stop();
+          i = 0; t = 0; typing = true; waiting = false;
+          gate.hidden = true;
+          lines.forEach(function (l) {
+            l.approved = false;
+            l.el.classList.remove('on', 'busy');
+            l.el.textContent = l.text;
+          });
+          METERS.forEach(function (k) {
+            $('rp-' + k).textContent = '-';
+          });
+          mark(-1);
+          box.classList.add('armed', 'idle');
+          log.scrollTop = 0;
+          buttons();
+        }
+        function next() {
+          i += 1; t = 0; typing = true;
+        }
+        function tick() {
+          var l = lines[i];
+          if (!l) {
+            stop();
+            mark(steps.length);
+            return;
+          }
+          t += TICK;
+          if (!l.typed) {
+            if (t >= LINE) { show(l); next(); }
+            return;
+          }
+          if (typing) {
+            if (l.gate && !l.approved) {
+              // the person's step: the replay waits for the visitor, as the review waits for a person
+              waiting = true;
+              mark(Number(l.d.step));
+              gate.hidden = false;
+              stop();
+              return;
+            }
+            mark(Number(l.d.step));
+            var n = Math.min(l.text.length, Math.floor(t / CHAR));
+            l.el.textContent = l.text.slice(0, n);
+            show(l);
+            if (n >= l.text.length) { typing = false; t = 0; l.el.classList.add('busy'); }
+            return;
+          }
+          // the command runs for a time in proportion to how long it really took
+          if (t < Math.max(300, Number(l.d.sec || 0) * PER_SEC)) return;
+          l.el.classList.remove('busy');
+          meters(l.d);
+          next();
+        }
+        go.addEventListener('click', function () {
+          var l = lines[i];
+          if (l) l.approved = true;
+          waiting = false;
+          gate.hidden = true;
+          start();
+        });
+        play.addEventListener('click', start);
+        pause.addEventListener('click', stop);
+        restart.addEventListener('click', function () {
+          reset();
+          start();
+        });
+        reset();
+      })();
     </script>
   </body>
 </html>
