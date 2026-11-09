@@ -20,41 +20,56 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #ffffff;
-        --fg: #111827;
-        --muted: #4b5563;
-        --line: #e5e7eb;
-        --accent: #2563eb;
-        --accent-fg: #ffffff;
+        --bg: #f7f8fc;
+        --fg: #0f172a;
+        --muted: #55607a;
+        --line: #dde2ee;
         --code-bg: #0f172a;
         --code-fg: #e2e8f0;
-        --card: #f9fafb;
+        --card: #ffffff;
+        --surface-2: #eef1f8;
+        --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
+        --accent: #2563eb;
+        --accent-2: #0d9488;
+        --accent-soft: #e8effd;
+        --accent-fg: #ffffff;
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme='light']) {
           --bg: #0b1020;
-          --fg: #e5e7eb;
-          --muted: #9ca3af;
-          --line: #1f2937;
+          --fg: #e7ecf6;
+          --muted: #9aa6c2;
+          --line: #26324d;
+          --code-bg: #070b16;
+          --code-fg: #dbe4f5;
+          --card: #121a2e;
+          --surface-2: #18223a;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
           --accent: #60a5fa;
+          --accent-2: #2dd4bf;
+          --accent-soft: #13213f;
           --accent-fg: #0b1020;
-          --code-bg: #111827;
-          --code-fg: #e5e7eb;
-          --card: #111827;
         }
       }
       :root[data-theme='dark'] {
         --bg: #0b1020;
-        --fg: #e5e7eb;
-        --muted: #9ca3af;
-        --line: #1f2937;
+        --fg: #e7ecf6;
+        --muted: #9aa6c2;
+        --line: #26324d;
+        --code-bg: #070b16;
+        --code-fg: #dbe4f5;
+        --card: #121a2e;
+        --surface-2: #18223a;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
         --accent: #60a5fa;
+        --accent-2: #2dd4bf;
+        --accent-soft: #13213f;
         --accent-fg: #0b1020;
-        --code-bg: #111827;
-        --code-fg: #e5e7eb;
-        --card: #111827;
       }
       * {
         box-sizing: border-box;
@@ -335,27 +350,105 @@
       .rp-gate p { margin: 0 0 8px; }
       .rp-note { font-size: 13px; color: var(--muted); margin: 0; }
       @media (prefers-reduced-motion: reduce) { .rp-log .busy::after { animation: none; } }
+      /* The look of the aiws-factory page (palette, type, cards) with a hero like junto's: a terminal
+         of real output beside the text. Each tool keeps its own accent. */
+      body {
+        font: 16px/1.65 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      pre,
+      code { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .topbar {
+        position: sticky; top: 0; z-index: 10; display: block; padding: 0;
+        backdrop-filter: saturate(160%) blur(10px);
+        background: color-mix(in srgb, var(--bg) 82%, transparent);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar .wrap { display: flex; align-items: center; gap: 16px; min-height: 60px; flex-wrap: wrap; }
+      .topbar .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--fg); text-decoration: none; }
+      .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+      .navlinks { display: flex; align-items: center; gap: 18px; margin-left: auto; font-size: 14px; font-weight: 500; }
+      .navlinks a { color: var(--muted); text-decoration: none; margin: 0; }
+      .navlinks a:hover { color: var(--fg); }
+      .lang-select { font: 600 13px inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+      @media (max-width: 720px) { .navlinks a.sec { display: none; } }
+      header.hero {
+        display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: 48px; align-items: center; padding: 72px 0 48px;
+      }
+      @media (max-width: 860px) { header.hero { grid-template-columns: minmax(0, 1fr); gap: 36px; padding-top: 44px; } }
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; padding: 6px 12px;
+        font: 600 11.5px/1.2 'JetBrains Mono', monospace; letter-spacing: 0.12em; text-transform: uppercase;
+        color: var(--accent); background: var(--accent-soft);
+        border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 999px;
+      }
+      .pulse { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); }
+      h1 { font-size: clamp(34px, 5.4vw, 56px); line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin: 0 0 18px; }
+      h1 .grad {
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      h2 { font-weight: 800; letter-spacing: -0.02em; }
+      .lead { font-size: clamp(17px, 2vw, 19px); }
+      .btn { border-radius: 10px; padding: 12px 20px; font-weight: 600; background: var(--card); }
+      .btn.primary { background: var(--accent); }
+      .btn:hover { border-color: var(--accent); }
+      .trust { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 22px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 13px; }
+      .trust li::before { content: '·'; margin-right: 8px; color: var(--accent); font-weight: 800; }
+      .hero-term { position: relative; }
+      .hero-term::before {
+        content: ''; position: absolute; inset: 12% -4% -8% 8%; z-index: 0;
+        background: color-mix(in srgb, var(--accent) 30%, transparent); filter: blur(52px); opacity: 0.55;
+      }
+      .term {
+        position: relative; z-index: 1; overflow: hidden; transform: rotate(1deg);
+        background: var(--code-bg); color: var(--code-fg); border-radius: 14px;
+        border: 1px solid color-mix(in srgb, var(--code-fg) 14%, transparent);
+        box-shadow: 0 28px 60px rgba(15, 23, 42, 0.25);
+      }
+      .term-bar { display: flex; align-items: center; gap: 7px; padding: 12px 16px; border-bottom: 1px solid color-mix(in srgb, var(--code-fg) 12%, transparent); }
+      .term-bar span { width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--code-fg) 28%, transparent); }
+      .term-bar code { margin-left: auto; font-size: 12px; color: color-mix(in srgb, var(--code-fg) 60%, transparent); }
+      .term pre { background: transparent; border-radius: 0; padding: 18px 20px 22px; font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .term .p { color: color-mix(in srgb, var(--accent) 45%, #ffffff); }
+      .term .ok { color: color-mix(in srgb, var(--accent) 30%, #ffffff); font-weight: 600; }
+      @media (max-width: 860px) { .term { transform: none; } }
+      .card { border-radius: 14px; box-shadow: var(--shadow); }
+      pre { border-radius: 12px; }
+      .wrap { max-width: 1080px; }
+      /* break a long command only when it cannot fit a line of its own */
+      p code,
+      li code,
+      td code,
+      figcaption code { overflow-wrap: break-word; }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <nav>
-        <p class="brand">reviewproof</p>
-        <div>
-          <a href="#refuses" data-i18n="nav.refuses">What it refuses</a>
-          <a href="#round" data-i18n="nav.round">One round</a>
-          <a href="https://github.com/vannt-dev/reviewproof">GitHub</a>
-          <a href="https://www.npmjs.com/package/reviewproof">npm</a>
-          <select id="lang" aria-label="Language">
+    <nav class="topbar" aria-label="Main">
+      <div class="wrap">
+        <a class="brand" href="#top">
+          <span class="logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M9 16.5l4.5 4.5L23 11" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+          reviewproof
+        </a>
+        <div class="navlinks">
+          <a class="sec" href="#refuses" data-i18n="nav.refuses">What it refuses</a>
+          <a class="sec" href="#round" data-i18n="nav.round">One round</a>
+          <a href="https://github.com/vannt-dev/reviewproof">GitHub ↗</a>
+          <a href="https://www.npmjs.com/package/reviewproof">npm ↗</a>
+          <select id="lang" class="lang-select" aria-label="Language">
             <option value="en">English</option>
             <option value="vi">Tiếng Việt</option>
           </select>
         </div>
-      </nav>
+      </div>
+    </nav>
+    <div class="wrap" id="top">
 
-      <header>
-        <h1>reviewproof</h1>
-        <p class="pitch" data-i18n="hero.pitch">A review ledger per pull request that refuses unchecked review claims.</p>
+      <header class="hero">
+        <div>
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span><span data-i18n="hero.eyebrow">A review ledger for pull requests</span></p>
+        <h1 data-i18n="hero.h1">Review claims <span class="grad">you can check</span>, round after round.</h1>
         <p class="lead" data-i18n="hero.lead">
           It refuses a finding without a source, a withdrawal without evidence, a verdict before the gates have finished and every changed
           file has been read, and a post without a named person. It does not review code and calls no model: an agent or a person does the
@@ -366,6 +459,24 @@
           <a class="btn primary" href="#start" data-i18n="cta.plugin">Install the Claude Code plugin</a>
           <a class="btn" href="https://github.com/vannt-dev/reviewproof">GitHub</a>
           <a class="btn" href="https://www.npmjs.com/package/reviewproof">npm</a>
+        </div>
+        <ul class="trust">
+          <li data-i18n="hero.t1">Calls no model</li>
+          <li data-i18n="hero.t2">GitHub and GitLab</li>
+          <li data-i18n="hero.t3">MIT</li>
+        </ul>
+        </div>
+        <div class="hero-term" aria-label="Output of a real review">
+          <div class="term">
+            <div class="term-bar"><span></span><span></span><span></span><code>reviewproof</code></div>
+            <pre><span class="p">$</span> reviewproof verdict pass --summary "Ready to merge."
+<span class="ok">verdict pass refused:</span>
+  - gate test failed
+  - blocking finding F1-1 is open
+
+<span class="p">$</span> reviewproof post --approved-by vannt-dev
+<span class="ok">reviewproof post: post from your own terminal, not from the agent</span></pre>
+          </div>
         </div>
       </header>
 
@@ -643,7 +754,11 @@
         vi: {
           'nav.refuses': 'Từ chối gì',
           'nav.round': 'Một vòng review',
-          'hero.pitch': 'Sổ review riêng cho từng pull request, không nhận những lời review không kiểm chứng được.',
+          'hero.eyebrow': 'Sổ review cho pull request',
+          'hero.h1': 'Lời review <span class="grad">kiểm chứng được</span>, qua từng vòng.',
+          'hero.t1': 'Không gọi model nào',
+          'hero.t2': 'GitHub và GitLab',
+          'hero.t3': 'MIT',
           'hero.lead':
             'reviewproof từ chối finding không có nguồn, việc rút lại finding mà không có bằng chứng, kết luận đưa ra trước khi các gate chạy xong và mọi file thay đổi đã được đọc, và việc đăng nhận xét khi chưa có tên người duyệt. Công cụ này không review code và không gọi model nào: agent hoặc người làm việc review, reviewproof lo phần sổ sách. Làm ra cho việc review có AI hỗ trợ qua nhiều vòng trên GitHub và GitLab; người review tự làm cũng dùng được.',
           'cta.plugin': 'Cài plugin Claude Code',
