@@ -374,6 +374,8 @@
               No verdict while a gate is unfinished, a changed file is unread or a carried finding has no status. Reads are measured: in
               Claude Code a hook on the Read tool records each file and line range the agent opened. <code>pass</code> is also refused while
               a blocking finding is open or a gate failed or was skipped, and a summary with hedge words (probably, seems, might) is refused.
+              A gate counts only when it ran at the round's head on a clean checkout; reruns are added, and the draft shows the attempts
+              that failed before.
             </p>
           </div>
           <div class="card">
@@ -575,7 +577,7 @@
             'Ở vòng sau, mọi finding còn mở cần một trạng thái: <code>verified</code>, <code>reopened</code> tại một vị trí ở head mới, hoặc <code>withdrawn</code>. Muốn rút lại phải có bằng chứng chứa <code>file:line@sha</code> hoặc một URL; “tác giả không đồng ý” không phải bằng chứng.',
           'ref.3.h': 'Kết luận khi việc chưa xong',
           'ref.3':
-            'Chưa có kết luận khi còn gate chưa chạy xong, còn file thay đổi chưa đọc, hoặc còn finding mang sang chưa có trạng thái. Việc đọc được đo: trong Claude Code, một hook trên công cụ Read ghi lại từng file và đoạn dòng mà agent đã mở. <code>pass</code> còn bị từ chối khi một finding blocking còn mở hoặc một gate fail hay bị bỏ qua; bản tóm tắt có từ nước đôi (probably, seems, might) cũng bị từ chối.',
+            'Chưa có kết luận khi còn gate chưa chạy xong, còn file thay đổi chưa đọc, hoặc còn finding mang sang chưa có trạng thái. Việc đọc được đo: trong Claude Code, một hook trên công cụ Read ghi lại từng file và đoạn dòng mà agent đã mở. <code>pass</code> còn bị từ chối khi một finding blocking còn mở hoặc một gate fail hay bị bỏ qua; bản tóm tắt có từ nước đôi (probably, seems, might) cũng bị từ chối. Gate chỉ được tính khi chạy đúng commit của vòng review, trên checkout sạch; chạy lại thì được ghi thêm, và bản nháp cho thấy các lần đã fail trước đó.',
           'ref.4.h': 'Đăng khi chưa có tên người duyệt',
           'ref.4':
             'Người review đọc bản nháp rồi tự chạy <code>reviewproof post --approved-by &lt;name&gt;</code> trong terminal của mình. Lệnh này không chạy bên trong Claude Code, và hook của plugin chặn agent chạy nó. Comment đã đăng được đọc lại và so với bản nháp.',
