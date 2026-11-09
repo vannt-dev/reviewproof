@@ -36,6 +36,10 @@ export interface GateAttempt {
   result: 'pass' | 'fail' | 'not-checked';
   reason?: string;
   log?: string;
+  /** The commit the checkout was at when the command ran; absent in attempts recorded before 0.3. */
+  head?: string;
+  /** Tracked files had uncommitted changes when the command ran. */
+  dirty?: true;
   at: string;
 }
 

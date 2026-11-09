@@ -28,6 +28,12 @@ const gateRun: Command = {
     });
     const log = path.join(env.store.dirFor(seen.ref), g.log ?? '');
     console.log(`gate ${name} attempt ${g.attempt}: ${g.result} (exit code ${g.exitCode ?? 'none'}), log ${log}`);
+    if (g.head && g.head !== seen.round.head) {
+      console.log(`note: the checkout is at ${g.head.slice(0, 7)}, not at the round's head ${seen.round.head.slice(0, 7)}: ` +
+        'this attempt does not count for the verdict');
+    } else if (g.dirty) {
+      console.log('note: uncommitted changes in the checkout: this attempt does not count for the verdict');
+    }
     return g.result === 'pass' ? 0 : 1;
   },
 };

@@ -1,16 +1,22 @@
 import type { Coverage } from './coverage.ts';
+import { offHead } from './gates.ts';
 import { currentStatus } from './rounds.ts';
-import type { Finding, GateAttempt, Ledger, Location } from './types.ts';
+import type { Finding, GateAttempt, Ledger, Location, Round } from './types.ts';
 
 // A pipe or line break inside a cell would split the table row.
 const cell = (s: string): string => s.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 const at = (loc: Location): string => `${loc.file}:${loc.line}@${loc.sha}`;
 
-function gateLine(name: string, gates: GateAttempt[]): string {
-  const mine = gates.filter((g) => g.name === name);
+// The last attempt decides; the failed ones before it stay in sight, and where it ran.
+function gateLine(name: string, round: Round): string {
+  const mine = round.gates.filter((g) => g.name === name);
   const last = mine[mine.length - 1] as GateAttempt;
   const why = last.result === 'not-checked' ? ` (${last.reason ?? ''})` : '';
-  return `- ${name}: ${last.result}${why}, ${mine.length} attempt${mine.length === 1 ? '' : 's'}`;
+  const where = last.head ? ` at ${last.head.slice(0, 7)}` : '';
+  const off = offHead(round, last);
+  const failed = mine.filter((g) => g !== last && g.result === 'fail').map((g) => g.attempt);
+  const before = failed.length ? ` (attempt${failed.length === 1 ? '' : 's'} ${failed.join(', ')} failed)` : '';
+  return `- ${name}: ${last.result}${why}${where}${off ? ` (${off})` : ''}, ${mine.length} attempt${mine.length === 1 ? '' : 's'}${before}`;
 }
 
 function carriedLine(f: Finding, round: number): string {
@@ -61,7 +67,7 @@ export function renderDraft(l: Ledger, cov: Coverage): string {
     '',
     '### Gates',
     '',
-    ...(names.length > 0 ? names.map((n) => gateLine(n, round.gates)) : ['none']),
+    ...(names.length > 0 ? names.map((n) => gateLine(n, round)) : ['none']),
     '',
     '### Coverage',
     '',

@@ -35,7 +35,7 @@ test('a failed then a passing attempt keeps both logs and the last one decides',
   const dir = store.dirFor(ref);
   assert.ok(a1.log && a2.log && a1.log !== a2.log && !a1.log.includes('\\'));
   assert.ok(fs.existsSync(path.join(dir, a1.log)) && fs.existsSync(path.join(dir, a2.log)));
-  assert.deepEqual(gateState(round, ['test']), { missing: [], failed: [], notChecked: [] });
+  assert.deepEqual(gateState(round, ['test']), { missing: [], failed: [], notChecked: [], stale: [] });
 });
 
 test('a program that does not exist is a fail with exitCode null and the error in the log', () => {
@@ -83,13 +83,14 @@ test('an attempt number skipped for a log already there is not handed out again'
 
 test('gateState lists missing, failed and not-checked names', () => {
   const { round, gate } = setup();
-  assert.deepEqual(gateState(round, ['lint']), { missing: ['lint'], failed: [], notChecked: [] });
+  assert.deepEqual(gateState(round, ['lint']), { missing: ['lint'], failed: [], notChecked: [], stale: [] });
   gate('build', [node, '-e', 'process.exit(2)']);
   assert.deepEqual(gateState(round, ['build', 'lint']), {
     missing: ['lint'],
     failed: ['build'],
     notChecked: [],
+    stale: [],
   });
   notChecked(round, 'lint', 'no linter');
-  assert.deepEqual(gateState(round, ['lint']), { missing: [], failed: [], notChecked: ['lint'] });
+  assert.deepEqual(gateState(round, ['lint']), { missing: [], failed: [], notChecked: ['lint'], stale: [] });
 });
