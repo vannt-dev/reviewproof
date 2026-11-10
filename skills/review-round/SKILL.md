@@ -68,9 +68,12 @@ changes it, so reviewproof commands may run at the same time; none loses another
 3. A large diff (more than ~800 changed lines or ~15 files): split the changed files into groups
    and give each group to a subagent that reads its files with the Read tool (its Reads count,
    recorded with its agent id) and returns candidate findings with source and `file:line`.
-   Subagents do not run `reviewproof add`. The main session reads the code of every candidate of
-   severity major or blocking itself before `reviewproof add` (helpers tend to confirm what they
-   were asked to look for).
+   Subagents do not run `reviewproof add` or `reviewproof diff`. The main session reads the code
+   of every candidate of severity major or blocking itself before `reviewproof add` (helpers tend
+   to confirm what they were asked to look for). This is checked: once a helper has read for the
+   round, `add` refuses a major or blocking finding, and `mark ... reopened` such a location, on
+   a line the main session has not read itself (its own Read, the lines `reviewproof diff`
+   printed, or `reviewproof read`). A minor finding is taken on the helper's word.
 4. Several pull requests: one checkout per PR (a git worktree, or a lane slot) and one agent per
    PR; each PR has its own ledger, so they never wait for each other.
 5. Before `verdict`: `reviewproof status` until no gate is missing (a background gate still
