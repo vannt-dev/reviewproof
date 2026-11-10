@@ -4,10 +4,13 @@ import { setActive } from '../active.ts';
 import { changedFiles } from '../diff.ts';
 import { parsePrRef } from '../hosts.ts';
 import { lintFinding, resolveAt } from '../lint.ts';
+import { allReads } from '../reads.ts';
 import { addFinding, mark, startRound } from '../rounds.ts';
+import { helpersRead, seenByMain } from '../seen.ts';
 import type { Ledger, Location, NewFinding, PrRef } from '../types.ts';
 import {
-  assertOpen, bullets, checkoutOf, count, git, lineCounter, locked, openReview, saveChange, str, take, type Command,
+  assertOpen, bullets, checkoutOf, count, git, lineCounter, locked, openReview, saveChange, str, take,
+  type Command, type Env, type Review,
 } from './context.ts';
 
 const start: Command = {
@@ -65,6 +68,20 @@ function mergeBase(checkout: string, base: string, head: string): string {
   }
 }
 
+// Helpers tend to confirm what they were asked to look for. So once one has read for the round, a
+// major or blocking claim stands only on a line the main session has had in front of it too.
+// Null when no helper took part: a review by one session is as it was.
+function ownReadCheck(env: Env, r: Review): ((at: Location) => string | null) | null {
+  const reads = allReads(env.store, r.ref, r.round);
+  if (!helpersRead(reads)) return null;
+  const changed = changedFiles(r.checkout, r.round.from, r.round.head);
+  return (at) =>
+    seenByMain(reads, changed, at.file, at.line)
+      ? null
+      : `${at.file}:${at.line} has not been read by the main session, and helper agents read for this round: ` +
+        `open it yourself first (Read ${at.file} at line ${at.line})`;
+}
+
 const add: Command = {
   args: '<json-file>',
   about: 'add findings: [{ severity, source: { kind, ref }, at: "file:line", title, body? }]',
@@ -81,6 +98,12 @@ const add: Command = {
       const lines = lineCounter(r.checkout, r.round.head);
       const linted = input.map((x) => lintFinding(x, r.round.head, lines));
       const errors = linted.flatMap((x, i) => x.errors.map((e) => `finding ${i + 1}: ${e}`));
+      const unread = ownReadCheck(env, r);
+      linted.forEach((x, i) => {
+        if (!unread || !x.finding || x.finding.severity === 'minor') return;
+        const error = unread(x.finding.location);
+        if (error) errors.push(`finding ${i + 1}: ${error}`);
+      });
       // All or nothing: after a half-added batch nobody knows which ids exist.
       if (errors.length > 0) {
         console.error(`nothing added:\n${bullets(errors)}`);
@@ -111,6 +134,12 @@ const markCommand: Command = {
         const at = resolveAt(atText, r.round.head, lineCounter(r.checkout, r.round.head));
         if ('error' in at) throw new Error(at.error);
         location = at.location;
+      }
+      // Reopening says the defect is at this line now: the same claim as a new finding.
+      const severity = r.ledger.findings.find((f) => f.id === id)?.severity;
+      if (status === 'reopened' && location && severity !== undefined && severity !== 'minor') {
+        const error = ownReadCheck(env, r)?.(location);
+        if (error) throw new Error(error);
       }
       mark(r.ledger, id, status as 'verified' | 'reopened' | 'withdrawn', { evidence: str(a, 'evidence'), location });
       saveChange(env, r);

@@ -118,6 +118,9 @@ time are safe: none loses another's change, and a gate's log is never overwritte
 - Start each gate as its own background command right after `start`, and review while they run.
   `status` shows a gate still running as missing.
 - Split a large diff among helper agents: their Reads count, each recorded with the agent's id.
+  Once a helper has read for a round, a `major` or `blocking` finding is accepted only on a line
+  the main session has read itself (its own Read, the lines `diff` printed, or `read`): `add` and
+  `mark ... reopened` name the line and refuse. A `minor` finding is taken on the helper's word.
 - Several pull requests: one checkout (a git worktree) and one agent per pull request; each pull
   request has its own ledger, so they never wait for each other.
 
