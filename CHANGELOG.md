@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/vannt-dev/reviewproof/compare/v0.3.1...v0.4.0) (2026-11-10)
+
+
+### Features
+
+* **add:** a helper's major finding needs the main session's own read ([#19](https://github.com/vannt-dev/reviewproof/issues/19)) ([a08a6e5](https://github.com/vannt-dev/reviewproof/commit/a08a6e52aeb5e3f8531927b8c3b464ff1829b9cb))
+
 ## [0.3.1](https://github.com/vannt-dev/reviewproof/compare/v0.3.0...v0.3.1) (2026-11-09)
 
 
