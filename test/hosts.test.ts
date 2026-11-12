@@ -241,18 +241,28 @@ test('GitLab inline opens one discussion per finding at its position in the merg
   ]);
 });
 
-test('GitLab inline reports each discussion before a later one fails, and refuses a moved head', async () => {
-  const posted: unknown[] = [];
+test('GitLab inline: a refused discussion does not hold up the next; auth failures stop; a moved head is refused', async () => {
   const comments = [
     { finding: 'F1-1', file: 'a', line: 1, body: 'one' },
     { finding: 'F1-2', file: 'b', line: 1, body: 'two' },
+    { finding: 'F1-3', file: 'c', line: 1, body: 'three' },
   ];
-  const partial = replies({ body: mr }, { body: { id: 'd1', notes: [{ id: 61 }] } }, { status: 400, body: 'line_code invalid' });
+  const posted: unknown[] = [];
+  const partial = replies(
+    { body: mr },
+    { body: { id: 'd1', notes: [{ id: 61 }] } },
+    { status: 400, body: 'line_code invalid' },
+    { body: { id: 'd3', notes: [{ id: 63 }] } },
+  );
   await assert.rejects(
     new GitLab(partial.f, 'tok').inline(gl, { head: 'h1', note: 'N', comments }, (p) => posted.push(...p)),
-    /GitLab 400/,
+    /GitLab refused F1-2: GitLab 400 .*line_code invalid/,
   );
-  assert.deepEqual(posted.map((p) => (p as { finding: string }).finding), ['F1-1']);
+  assert.deepEqual(posted.map((p) => (p as { finding: string }).finding), ['F1-1', 'F1-3']);
+
+  const auth = replies({ body: mr }, { status: 403, body: 'forbidden' });
+  await assert.rejects(new GitLab(auth.f, 'tok').inline(gl, { head: 'h1', note: 'N', comments }, () => {}), /GitLab 403/);
+  assert.equal(auth.seen.length, 2);
 
   const moved = replies({ body: mr });
   await assert.rejects(new GitLab(moved.f, 'tok').inline(gl, { head: 'h2', note: 'N', comments }, () => {}), /head moved/);

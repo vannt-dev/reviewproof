@@ -72,12 +72,14 @@ export class GitLab implements Host {
   }
 
   // One discussion per finding, each reported as soon as it exists, so a failure part way loses
-  // none. A position names the merge request's diff, so its refs are read first.
+  // none. One the merge request refuses (a 4xx other than auth) does not hold up the ones after
+  // it; the refusals are named at the end. A position names the diff, so its refs are read first.
   async inline(ref: PrRef, req: InlineRequest, posted: (p: InlinePosted[]) => void): Promise<void> {
     const refs = ((await this.call(ref, `/merge_requests/${ref.number}`)) as MergeRequest).diff_refs;
     if (refs.head_sha.toLowerCase() !== req.head.toLowerCase()) {
       throw new Error(`head moved: the merge request is at ${refs.head_sha}, the round reviewed ${req.head}`);
     }
+    const refused: string[] = [];
     for (const c of req.comments) {
       const position = {
         position_type: 'text',
@@ -88,11 +90,18 @@ export class GitLab implements Host {
         new_path: c.file,
         new_line: c.line,
       };
-      const j = (await this.call(ref, `/merge_requests/${ref.number}/discussions`, { body: c.body, position })) as {
-        id: string; notes: { id: number }[];
-      };
+      let j: { id: string; notes: { id: number }[] };
+      try {
+        j = (await this.call(ref, `/merge_requests/${ref.number}/discussions`, { body: c.body, position })) as typeof j;
+      } catch (e) {
+        const s = e instanceof GitLabError ? e.status : 0;
+        if (s < 400 || s > 499 || s === 401 || s === 403) throw e;
+        refused.push(`${c.finding}: ${(e as Error).message}`);
+        continue;
+      }
       const note = j.notes[0]?.id;
       posted([{ finding: c.finding, id: j.id, url: note === undefined ? this.mrUrl(ref) : `${this.mrUrl(ref)}#note_${note}` }]);
     }
+    if (refused.length > 0) throw new Error(`GitLab refused ${refused.join('; ')}`);
   }
 }

@@ -57,6 +57,22 @@ test('a deleted earlier note gets a new one', async () => {
   assert.equal(ledger(s).rounds[1]?.post?.edited, undefined);
 });
 
+test('an earlier note that cannot be edited posts nothing and names --new-comment', async () => {
+  const s = await secondRound();
+  await steps(s, ['mark', 'F1-1', 'verified'], ['verdict', 'pass', '--summary', 'Fixed.'], ['draft']);
+  s.host.updateFails = 'gh api failed: gh: Forbidden (HTTP 403)';
+  const r = await s.rp('post', '--approved-by', 'tester');
+  assert.equal(r.code, 1);
+  assert.match(r.err, /could not edit the earlier note \S+issuecomment-101: gh api failed: gh: Forbidden \(HTTP 403\)/);
+  assert.match(r.err, /nothing was posted; reviewproof post --new-comment posts a new note instead/);
+  assert.equal(s.host.comments.size, 1);
+  assert.match(s.host.comments.get('101') ?? '', /## Review round 1/);
+  assert.equal(ledger(s).rounds[1]?.post, undefined);
+  s.host.updateFails = null;
+  await steps(s, ['post', '--new-comment', '--approved-by', 'tester']);
+  assert.equal(s.host.comments.size, 2);
+});
+
 test('post --new-comment posts a new note and leaves the earlier one as it was', async () => {
   const s = await secondRound();
   await steps(s, ['mark', 'F1-1', 'verified'], ['verdict', 'pass', '--summary', 'Fixed.'], ['draft']);

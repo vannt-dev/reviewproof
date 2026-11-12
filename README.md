@@ -151,8 +151,8 @@ not valid JSON is an error.
 ## Ledger
 
 `$REVIEWPROOF_HOME`, default `~/.reviewproof`, is a git repository of its own, so reviews never touch
-the reviewed repository. Each verdict and each post makes one commit. You may push it to a private
-remote. `active.json` (this machine's checkout paths) and the `*.lock` files are git-ignored.
+the reviewed repository. Each verdict and each post makes one commit, and the line comments of
+`post --inline` one more. You may push it to a private remote. `active.json` (this machine's checkout paths) and the `*.lock` files are git-ignored.
 
 ```text
 <host>/<owner>/<repo>/<number>/

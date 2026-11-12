@@ -32,6 +32,8 @@ export class FakeHost implements Host {
   base = '';
   readonly comments = new Map<string, string>();
   private nextId = 101;
+  // Set to make editing a note fail, as another account's note would.
+  updateFails: string | null = null;
   // Set to make the host store a note other than the one sent.
   altered: string | null = null;
   // Set to change the ledger while a note is being posted, as a command run meanwhile would.
@@ -49,6 +51,7 @@ export class FakeHost implements Host {
   }
 
   async updateComment(_ref: PrRef, id: string, body: string): Promise<{ id: string; url: string } | null> {
+    if (this.updateFails) throw new Error(this.updateFails);
     if (!this.comments.has(id)) return null;
     this.comments.set(id, this.altered ?? body);
     return { id, url: `https://github.com/o/r/pull/1#issuecomment-${id}` };

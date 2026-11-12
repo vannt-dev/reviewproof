@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { renderDraft } from '../draft.ts';
-import { sameNote } from '../hosts.ts';
+import { sameNote, type Host } from '../hosts.ts';
 import { currentStatus } from '../rounds.ts';
 import { changedFiles } from '../diff.ts';
 import { inlinePlan, type InlinePlan } from '../inline.ts';
@@ -10,6 +10,8 @@ import {
   assertOpen, bullets, coverageOf, locked, mergeBase, openReview, prName, str, take,
   type Command, type Env, type Review,
 } from './context.ts';
+
+type Posted = { id: string; url: string };
 
 // A verdict and a post speak about one head; a push since the round started makes both stale.
 async function assertHead(env: Env, r: Review): Promise<void> {
@@ -117,7 +119,7 @@ const post: Command = {
     // One note per pull request: a later round edits the note it last posted. The ledger keeps
     // every round's note, so the pull request shows the current one, without a comment per round.
     const earlier = a.values['new-comment'] === true ? undefined : r.ledger.rounds.findLast((x) => x.post)?.post;
-    let note = earlier ? await host.updateComment(r.ref, earlier.id, body) : null;
+    let note = earlier ? await editNote(host, r, earlier.url, earlier.id, body) : null;
     if (earlier && !note) console.error(`the earlier note ${earlier.url} is gone: posting a new one`);
     const edited = note !== null;
     note ??= await host.comment(r.ref, body);
@@ -138,6 +140,18 @@ const post: Command = {
     return plan ? Math.max(code, await sendInline(env, r, plan, url)) : code;
   },
 };
+
+// Another account or token may not edit the earlier note: nothing is posted yet, so say how to go on.
+async function editNote(host: Host, r: Review, url: string, id: string, body: string): Promise<Posted | null> {
+  try {
+    return await host.updateComment(r.ref, id, body);
+  } catch (e) {
+    throw new Error(
+      `could not edit the earlier note ${url}: ${(e as Error).message}\n` +
+        'nothing was posted; reviewproof post --new-comment posts a new note instead',
+    );
+  }
+}
 
 // The pull request's diff (merge-base to the round's head), not the round's: hosts place a line
 // comment against the whole pull request.
