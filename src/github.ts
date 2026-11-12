@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Host } from './hosts.ts';
+import type { Host, InlineRequest } from './hosts.ts';
 import type { PrInfo } from './rounds.ts';
 import { runCapture } from './spawn.ts';
-import type { PrRef } from './types.ts';
+import type { InlinePosted, PrRef } from './types.ts';
 
 // No update notice, and a missing login fails instead of waiting for input.
 const GH_ENV = { GH_NO_UPDATE_NOTIFIER: '1', GH_PROMPT_DISABLED: '1' };
@@ -35,19 +35,47 @@ export class GitHub implements Host {
     return { url: j.html_url, title: j.title, head: j.head.sha, base: j.base.sha };
   }
 
-  async comment(ref: PrRef, body: string): Promise<{ id: string; url: string }> {
-    // A file, not an argv field: the body holds non-ASCII text that a Windows command line would mangle.
+  // A file, not an argv field: the body holds non-ASCII text that a Windows command line would mangle.
+  private send(ref: PrRef, method: string, endpoint: string, payload: unknown): unknown {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rp-gh-'));
-    const file = path.join(dir, 'comment.json');
+    const file = path.join(dir, 'body.json');
     try {
-      fs.writeFileSync(file, JSON.stringify({ body }), 'utf8');
-      const j = this.api(
-        ref, '-X', 'POST', `repos/${ref.project}/issues/${ref.number}/comments`, '--input', file,
-      ) as { id: number; html_url: string };
-      return { id: String(j.id), url: j.html_url };
+      fs.writeFileSync(file, JSON.stringify(payload), 'utf8');
+      return this.api(ref, '-X', method, endpoint, '--input', file);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  }
+
+  async comment(ref: PrRef, body: string): Promise<{ id: string; url: string }> {
+    const j = this.send(ref, 'POST', `repos/${ref.project}/issues/${ref.number}/comments`, { body }) as {
+      id: number; html_url: string;
+    };
+    return { id: String(j.id), url: j.html_url };
+  }
+
+  async updateComment(ref: PrRef, id: string, body: string): Promise<{ id: string; url: string } | null> {
+    try {
+      const j = this.send(ref, 'PATCH', `repos/${ref.project}/issues/comments/${id}`, { body }) as {
+        id: number; html_url: string;
+      };
+      return { id: String(j.id), url: j.html_url };
+    } catch (e) {
+      // gh ends its message with the status; only a comment that is gone may become a new one.
+      if (/\(HTTP 404\)/.test((e as Error).message)) return null;
+      throw e;
+    }
+  }
+
+  // One review that only comments (never approves), pinned to the reviewed commit: all or nothing.
+  async inline(ref: PrRef, req: InlineRequest, posted: (p: InlinePosted[]) => void): Promise<void> {
+    const j = this.send(ref, 'POST', `repos/${ref.project}/pulls/${ref.number}/reviews`, {
+      commit_id: req.head,
+      event: 'COMMENT',
+      body: `Findings on their lines; the round note: ${req.note}`,
+      comments: req.comments.map((c) => ({ path: c.file, line: c.line, side: 'RIGHT', body: c.body })),
+    }) as { id: number; html_url: string };
+    posted(req.comments.map((c) => ({ finding: c.finding, id: String(j.id), url: j.html_url })));
   }
 
   async readComment(ref: PrRef, id: string): Promise<string> {

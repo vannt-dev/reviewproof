@@ -9,7 +9,7 @@ import { addFinding, mark, startRound } from '../rounds.ts';
 import { helpersRead, seenByMain } from '../seen.ts';
 import type { Ledger, Location, NewFinding, PrRef } from '../types.ts';
 import {
-  assertOpen, bullets, checkoutOf, count, git, lineCounter, locked, openReview, saveChange, str, take,
+  assertOpen, bullets, checkoutOf, count, git, lineCounter, locked, mergeBase, openReview, saveChange, str, take,
   type Command, type Env, type Review,
 } from './context.ts';
 
@@ -58,14 +58,6 @@ function assertAtHead(checkout: string, ref: PrRef, head: string): void {
 // the latest round that has one; before any verdict, from where the first round did.
 function nextFrom(ledger: Ledger | null): string | undefined {
   return ledger?.rounds.findLast((x) => x.verdict)?.head ?? ledger?.rounds[0]?.from;
-}
-
-function mergeBase(checkout: string, base: string, head: string): string {
-  try {
-    return git(checkout, ['merge-base', base, head]).trim();
-  } catch {
-    throw new Error(`base ${base} is not in the checkout: run git fetch origin`);
-  }
 }
 
 // Helpers tend to confirm what they were asked to look for. So once one has read for the round, a

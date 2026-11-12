@@ -85,7 +85,7 @@ test('parseDiff handles single-line hunks, pure deletions and a rename without e
   ].join('\n');
   assert.deepEqual(parseDiff(text), [
     { file: 'x.ts', status: 'M', binary: false, ranges: [[2, 2], [21, 23]] },
-    { file: 'new.ts', status: 'R', binary: false, ranges: [] },
+    { file: 'new.ts', status: 'R', binary: false, ranges: [], from: 'old.ts' },
   ]);
 });
 

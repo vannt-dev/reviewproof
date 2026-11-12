@@ -5,9 +5,9 @@ import { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, execFileSync } from 'node:child_process';
 import { run } from '../src/cli.ts';
-import type { Host } from '../src/hosts.ts';
+import type { Host, InlineComment, InlineRequest } from '../src/hosts.ts';
 import type { PrInfo } from '../src/rounds.ts';
-import type { PrRef } from '../src/types.ts';
+import type { InlinePosted, PrRef } from '../src/types.ts';
 
 // Commits in the temp repos and in the ledger home need an identity on a bare CI runner.
 process.env.GIT_AUTHOR_NAME = process.env.GIT_COMMITTER_NAME = 'Test';
@@ -31,6 +31,9 @@ export class FakeHost implements Host {
   head = '';
   base = '';
   readonly comments = new Map<string, string>();
+  private nextId = 101;
+  // Set to make editing a note fail, as another account's note would.
+  updateFails: string | null = null;
   // Set to make the host store a note other than the one sent.
   altered: string | null = null;
   // Set to change the ledger while a note is being posted, as a command run meanwhile would.
@@ -42,13 +45,33 @@ export class FakeHost implements Host {
 
   async comment(_ref: PrRef, body: string): Promise<{ id: string; url: string }> {
     this.meanwhile?.();
-    const id = String(101 + this.comments.size);
+    const id = String(this.nextId++);
+    this.comments.set(id, this.altered ?? body);
+    return { id, url: `https://github.com/o/r/pull/1#issuecomment-${id}` };
+  }
+
+  async updateComment(_ref: PrRef, id: string, body: string): Promise<{ id: string; url: string } | null> {
+    if (this.updateFails) throw new Error(this.updateFails);
+    if (!this.comments.has(id)) return null;
     this.comments.set(id, this.altered ?? body);
     return { id, url: `https://github.com/o/r/pull/1#issuecomment-${id}` };
   }
 
   async readComment(_ref: PrRef, id: string): Promise<string> {
     return this.comments.get(id) ?? '';
+  }
+
+  // Line comments posted, in order, with the note each one named.
+  readonly inlines: (InlineComment & { note: string })[] = [];
+  // Set to fail the line comments after this many were posted.
+  inlineFailAfter: number | null = null;
+
+  async inline(_ref: PrRef, req: InlineRequest, posted: (p: InlinePosted[]) => void): Promise<void> {
+    for (const c of req.comments) {
+      if (this.inlineFailAfter !== null && this.inlines.length >= this.inlineFailAfter) throw new Error('HTTP 502');
+      this.inlines.push({ ...c, note: req.note });
+      posted([{ finding: c.finding, id: `d${this.inlines.length}`, url: `https://github.com/o/r/pull/1#d${this.inlines.length}` }]);
+    }
   }
 }
 

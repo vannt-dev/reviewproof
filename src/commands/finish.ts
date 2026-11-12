@@ -1,12 +1,17 @@
 import fs from 'node:fs';
 import { renderDraft } from '../draft.ts';
-import { sameNote } from '../hosts.ts';
+import { sameNote, type Host } from '../hosts.ts';
 import { currentStatus } from '../rounds.ts';
-import type { Round } from '../types.ts';
+import { changedFiles } from '../diff.ts';
+import { inlinePlan, type InlinePlan } from '../inline.ts';
+import type { InlinePosted, Round } from '../types.ts';
 import { verdictBlockers } from '../verdict.ts';
 import {
-  assertOpen, bullets, coverageOf, locked, openReview, prName, str, take, type Command, type Env, type Review,
+  assertOpen, bullets, coverageOf, locked, mergeBase, openReview, prName, str, take,
+  type Command, type Env, type Review,
 } from './context.ts';
+
+type Posted = { id: string; url: string };
 
 // A verdict and a post speak about one head; a push since the round started makes both stale.
 async function assertHead(env: Env, r: Review): Promise<void> {
@@ -76,17 +81,20 @@ function firstDifference(sent: string, back: string): string {
 }
 
 const post: Command = {
-  args: '--approved-by NAME',
+  args: '--approved-by NAME [--inline] [--new-comment]',
   about: 'post the draft and read it back (the person runs this, never the agent)',
-  options: { 'approved-by': { type: 'string' } },
+  options: { 'approved-by': { type: 'string' }, inline: { type: 'boolean' }, 'new-comment': { type: 'boolean' } },
   async run(env, a) {
     // Claude Code sets CLAUDECODE=1 in the commands it runs: the person posts, never the agent.
     if (process.env.CLAUDECODE === '1') throw new Error('post from your own terminal, not from the agent');
     take(a);
     const approvedBy = (str(a, 'approved-by') ?? '').trim();
     if (approvedBy === '') throw new Error('post needs --approved-by <name of the person who read the draft>');
+    const inline = a.values.inline === true;
     const r = openReview(env);
     const { round } = r;
+    // A posted round only takes the inline comments it does not have yet, never a second note.
+    if (round.post && inline) return inlineAgain(env, r, round.post);
     if (round.post) throw new Error(`round ${round.n} is already posted: ${round.post.url}`);
     const v = round.verdict;
     if (!v) throw new Error(`round ${round.n} has no verdict: run reviewproof verdict first`);
@@ -104,21 +112,93 @@ const post: Command = {
       console.error(`the ledger changed since the verdict: run reviewproof verdict again\n${bullets(blockers)}`);
       return 1;
     }
+    // Planned before anything is posted: a base missing from the checkout fails here, not half way.
+    const plan = inline ? planFor(r) : null;
     await assertHead(env, r);
     const host = env.host(r.ref);
-    const { id, url } = await host.comment(r.ref, body);
+    // One note per pull request: a later round edits the note it last posted. The ledger keeps
+    // every round's note, so the pull request shows the current one, without a comment per round.
+    const earlier = a.values['new-comment'] === true ? undefined : r.ledger.rounds.findLast((x) => x.post)?.post;
+    let note = earlier ? await editNote(host, r, earlier.url, earlier.id, body) : null;
+    if (earlier && !note) console.error(`the earlier note ${earlier.url} is gone: posting a new one`);
+    const edited = note !== null;
+    note ??= await host.comment(r.ref, body);
+    const { id, url } = note;
     // Recorded before the read-back: the comment exists either way, and a re-run must not post twice.
-    const changed = record(env, r, v, { id, url, approvedBy, at: env.now().toISOString() });
-    console.log(`posted ${url}`);
+    const at = env.now().toISOString();
+    const changed = record(env, r, v, { id, url, approvedBy, at, ...(edited ? { edited: true as const } : {}) });
+    console.log(edited ? `posted ${url} (the earlier note, edited)` : `posted ${url}`);
     if (changed.length > 0) {
       console.error(`posted note is stale: ${url} — the ledger changed while posting\n${bullets(changed)}`);
     }
     const back = await host.readComment(r.ref, id);
-    if (sameNote(body, back)) return changed.length > 0 ? 1 : 0;
-    console.error(`warning: the posted note differs from the draft at ${firstDifference(body, back)}`);
-    return 1;
+    let code = changed.length > 0 ? 1 : 0;
+    if (!sameNote(body, back)) {
+      console.error(`warning: the posted note differs from the draft at ${firstDifference(body, back)}`);
+      code = 1;
+    }
+    return plan ? Math.max(code, await sendInline(env, r, plan, url)) : code;
   },
 };
+
+// Another account or token may not edit the earlier note: nothing is posted yet, so say how to go on.
+async function editNote(host: Host, r: Review, url: string, id: string, body: string): Promise<Posted | null> {
+  try {
+    return await host.updateComment(r.ref, id, body);
+  } catch (e) {
+    throw new Error(
+      `could not edit the earlier note ${url}: ${(e as Error).message}\n` +
+        'nothing was posted; reviewproof post --new-comment posts a new note instead',
+    );
+  }
+}
+
+// The pull request's diff (merge-base to the round's head), not the round's: hosts place a line
+// comment against the whole pull request.
+function planFor(r: Review): InlinePlan {
+  const changed = changedFiles(r.checkout, mergeBase(r.checkout, r.round.base, r.round.head), r.round.head);
+  return inlinePlan(r.ledger, r.round, changed);
+}
+
+async function inlineAgain(env: Env, r: Review, done: NonNullable<Round['post']>): Promise<number> {
+  const plan = planFor(r);
+  const have = new Set((done.inline ?? []).map((p) => p.finding));
+  const missing = plan.inline.filter((c) => !have.has(c.finding));
+  if (missing.length === 0) throw new Error(`round ${r.round.n} is already posted: ${done.url}`);
+  await assertHead(env, r);
+  return sendInline(env, r, { ...plan, inline: missing }, done.url);
+}
+
+async function sendInline(env: Env, r: Review, plan: InlinePlan, note: string): Promise<number> {
+  for (const s of plan.summaryOnly) console.log(`${s.finding} ${s.at}: not an added line of the diff, in the note only`);
+  if (plan.inline.length === 0) return 0;
+  const posted: InlinePosted[] = [];
+  let failure: Error | null = null;
+  try {
+    await env.host(r.ref).inline(r.ref, { head: r.round.head, note, comments: plan.inline }, (p) => posted.push(...p));
+  } catch (e) {
+    failure = e as Error;
+  }
+  if (posted.length > 0) recordInline(env, r, posted);
+  for (const p of posted) console.log(`${p.finding} on its line: ${p.url}`);
+  if (!failure) return 0;
+  console.error(
+    `inline comments failed after ${posted.length} of ${plan.inline.length}: ${failure.message}\n` +
+      'the note holds every finding; run reviewproof post --inline again to add the rest',
+  );
+  return 1;
+}
+
+function recordInline(env: Env, seen: Review, posted: InlinePosted[]): void {
+  env.store.locked(seen.ref, () => {
+    const l = env.store.load(seen.ref);
+    const now = l?.rounds.find((x) => x.n === seen.round.n);
+    if (!l || !now?.post) throw new Error(`round ${seen.round.n} has no recorded post`);
+    now.post.inline = [...(now.post.inline ?? []), ...posted];
+    env.store.save(l);
+    env.store.commit(`${prName(seen.ref)} round ${now.n}: ${posted.length} inline`);
+  });
+}
 
 // The host call ran outside the lock: the post goes into the ledger as it is now, and whatever
 // changed meanwhile, so that the note no longer states the ledger, is returned.

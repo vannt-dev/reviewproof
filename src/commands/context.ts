@@ -96,6 +96,14 @@ export function lineCounter(checkout: string, sha: string): (file: string) => nu
   };
 }
 
+export function mergeBase(checkout: string, base: string, head: string): string {
+  try {
+    return git(checkout, ['merge-base', base, head]).trim();
+  } catch {
+    throw new Error(`base ${base} is not in the checkout: run git fetch origin`);
+  }
+}
+
 export interface Review {
   checkout: string;
   ref: PrRef;
