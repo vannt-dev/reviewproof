@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/vannt-dev/reviewproof/compare/v0.4.0...v0.5.0) (2026-11-12)
+
+
+### Features
+
+* **post:** one note per pull request, and line comments with --inline ([#21](https://github.com/vannt-dev/reviewproof/issues/21)) ([c16b488](https://github.com/vannt-dev/reviewproof/commit/c16b48887076630afa246dcd79362e5d8171721a))
+
 ## [0.4.0](https://github.com/vannt-dev/reviewproof/compare/v0.3.1...v0.4.0) (2026-11-10)
 
 

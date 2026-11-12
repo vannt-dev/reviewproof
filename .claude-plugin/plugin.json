@@ -1,7 +1,7 @@
 {
   "name": "reviewproof",
   "description": "A per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "vannt-dev"
   },
