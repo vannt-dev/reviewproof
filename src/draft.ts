@@ -25,14 +25,20 @@ function carriedLine(f: Finding, round: number): string {
   return `- ${f.id} ${f.title}: ${currentStatus(f)}${proof ? ` (${proof})` : ''}`;
 }
 
+/** Where a finding stands now: a reopened finding's new line, else where it was found. */
+export function whereNow(f: Finding): Location {
+  return f.history.at(-1)?.location ?? f.location;
+}
+
 // The table holds one line per finding; the reasoning a reader needs to act on it goes below.
+// Reopened findings keep their reasoning too: the note of their own round may since be edited.
 function details(findings: Finding[]): string[] {
   const withBody = findings.filter((f) => f.body?.trim());
   if (withBody.length === 0) return [];
   return [
     '### Details',
     '',
-    ...withBody.flatMap((f) => [`**${f.id} ${cell(f.title)}** (${at(f.location)})`, '', (f.body ?? '').trim(), '']),
+    ...withBody.flatMap((f) => [`**${f.id} ${cell(f.title)}** (${at(whereNow(f))})`, '', (f.body ?? '').trim(), '']),
   ];
 }
 
@@ -59,7 +65,7 @@ export function renderDraft(l: Ledger, cov: Coverage): string {
     // A table with no rows renders as a lone header; say none, as the other sections do.
     ...(rows.length > 0 ? ['| id | severity | source | location | title |', '| --- | --- | --- | --- | --- |', ...rows] : ['none']),
     '',
-    ...details(mine),
+    ...details([...mine, ...earlier.filter((f) => currentStatus(f) === 'reopened')]),
     '### Carried findings',
     '',
     ...(earlier.length > 0 ? earlier.map((f) => carriedLine(f, round.n)) : ['none']),

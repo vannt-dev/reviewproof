@@ -64,7 +64,19 @@ shows each gate's last result, the commit it ran at and the attempts that failed
 (`- test: pass at 5d6e7f8, 2 attempts (attempt 1 failed)`).
 
 `post` sends the draft as a comment, reads it back, compares it with the draft and stores the
-comment's id and URL. It refuses when the draft file differs from the note the ledger renders (run
+comment's id and URL. A pull request has one note: a later round edits the note posted before
+instead of adding a comment per round, and the ledger keeps every round's note (`drafts/`). If that
+note was deleted, `post` posts a new one; `post --new-comment` always does. An edited comment sends
+no new notification, so use `--new-comment` when the author should hear of the round. Reopened
+findings keep their reasoning in the note, since the note of their own round is replaced.
+
+`post --inline` also puts each open finding on its line: on GitHub one review that only comments
+(never approves), pinned to the round's head; on GitLab one discussion per finding. Only lines the
+pull request adds can take a comment; a finding elsewhere stays in the note only, and `post` lists
+it. The note always holds every finding. If the line comments fail part way, run
+`post --inline` again: it adds the missing ones and never a second note.
+
+`post` refuses when the draft file differs from the note the ledger renders (run
 `reviewproof draft` again), and it refuses inside Claude Code (`CLAUDECODE=1`): post from your own
 terminal, not from the agent. After the author pushes, run `start` again: every finding still open
 needs a status before the next verdict. A new round diffs from the head of the most recent round
@@ -180,7 +192,8 @@ before the gates and reads are done, measured read coverage, and the posted note
 - The person posts by running `reviewproof post --approved-by <name>` in their own terminal. The
   PreToolUse guard stops this tool's `post` command only. It does not stop an agent that calls the
   GitHub or GitLab API itself (`gh api`, `curl`, ...).
-- One summary note per round; no inline comments, approving or merging.
+- One note per pull request, edited each round. Line comments only with `post --inline` and only on
+  lines the pull request adds. No approving or merging.
 
 ## License
 

@@ -6,6 +6,8 @@ export interface ChangedFile {
   status: 'A' | 'M' | 'D' | 'R';
   binary: boolean;
   ranges: [number, number][];
+  /** The path before a rename. */
+  from?: string;
 }
 
 const HUNK = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/;
@@ -38,6 +40,7 @@ export function parseDiff(text: string): ChangedFile[] {
     } else if (!inHunks) {
       if (line.startsWith('new file mode')) cur.status = 'A';
       else if (line.startsWith('deleted file mode')) cur.status = 'D';
+      else if (line.startsWith('rename from ')) cur.from = line.slice('rename from '.length);
       else if (line.startsWith('rename to ')) {
         cur.status = 'R';
         cur.file = line.slice('rename to '.length);

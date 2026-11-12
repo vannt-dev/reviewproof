@@ -139,3 +139,122 @@ test('hostFor picks the implementation by host', () => {
   assert.ok(hostFor(gh) instanceof GitHub);
   assert.ok(hostFor(gl) instanceof GitLab);
 });
+
+test('GitHub updateComment PATCHes the comment through a temp file', async () => {
+  let content = '';
+  const host = new GitHub((argv) => {
+    assert.deepEqual(argv.slice(0, 4), ['api', '-X', 'PATCH', 'repos/o/r/issues/comments/99']);
+    content = fs.readFileSync(argv[5] ?? '', 'utf8');
+    return JSON.stringify({ id: 99, html_url: 'https://x/c99' });
+  });
+  assert.deepEqual(await host.updateComment(gh, '99', 'vòng 2'), { id: '99', url: 'https://x/c99' });
+  assert.equal((JSON.parse(content) as { body: string }).body, 'vòng 2');
+});
+
+test('GitHub updateComment: a deleted comment is null, any other failure throws', async () => {
+  const fails = (message: string) => new GitHub(() => {
+    throw new Error(message);
+  });
+  assert.equal(await fails('gh api failed: gh: Not Found (HTTP 404)').updateComment(gh, '99', 'b'), null);
+  await assert.rejects(fails('gh api failed: gh: Forbidden (HTTP 403)').updateComment(gh, '99', 'b'), /HTTP 403/);
+  await assert.rejects(fails('gh api failed: connection reset').updateComment(gh, '99', 'b'), /connection reset/);
+});
+
+test('GitHub inline posts one commenting review at the round head', async () => {
+  let payload: Record<string, unknown> = {};
+  const host = new GitHub((argv) => {
+    assert.deepEqual(argv.slice(0, 4), ['api', '-X', 'POST', 'repos/o/r/pulls/12/reviews']);
+    payload = JSON.parse(fs.readFileSync(argv[5] ?? '', 'utf8')) as Record<string, unknown>;
+    return JSON.stringify({ id: 7, html_url: 'https://x/r7' });
+  });
+  const posted: unknown[] = [];
+  const comments = [
+    { finding: 'F1-1', file: 'src/a.ts', line: 2, body: 'one' },
+    { finding: 'F1-2', file: 'src/n.ts', from: 'src/o.ts', line: 5, body: 'two' },
+  ];
+  await host.inline(gh, { head: 'h1', note: 'https://x/c99', comments }, (p) => posted.push(...p));
+  assert.deepEqual(payload, {
+    commit_id: 'h1',
+    event: 'COMMENT',
+    body: 'Findings on their lines; the round note: https://x/c99',
+    comments: [
+      { path: 'src/a.ts', line: 2, side: 'RIGHT', body: 'one' },
+      { path: 'src/n.ts', line: 5, side: 'RIGHT', body: 'two' },
+    ],
+  });
+  assert.deepEqual(posted, [
+    { finding: 'F1-1', id: '7', url: 'https://x/r7' },
+    { finding: 'F1-2', id: '7', url: 'https://x/r7' },
+  ]);
+});
+
+// Answers each request with the next reply in turn.
+function replies(...list: { status?: number; body: unknown }[]) {
+  const seen: { url: string; init?: RequestInit }[] = [];
+  const f = (async (url: string, init?: RequestInit) => {
+    seen.push({ url, init });
+    const next = list[seen.length - 1] ?? { status: 500, body: 'no reply left' };
+    return new Response(typeof next.body === 'string' ? next.body : JSON.stringify(next.body), { status: next.status ?? 200 });
+  }) as unknown as typeof fetch;
+  return { f, seen };
+}
+
+test('GitLab updateComment PUTs the note; a deleted note is null, other failures throw', async () => {
+  const ok = replies({ body: { id: 55 } });
+  const r = await new GitLab(ok.f, 'tok').updateComment(gl, '55', 'vòng 2');
+  assert.deepEqual(r, { id: '55', url: 'https://gitlab.example.com/g/sub/r/-/merge_requests/7#note_55' });
+  assert.equal(ok.seen[0]?.url, 'https://gitlab.example.com/api/v4/projects/g%2Fsub%2Fr/merge_requests/7/notes/55');
+  assert.equal(ok.seen[0]?.init?.method, 'PUT');
+  assert.equal((JSON.parse(String(ok.seen[0]?.init?.body)) as { body: string }).body, 'vòng 2');
+
+  assert.equal(await new GitLab(replies({ status: 404, body: 'gone' }).f, 'tok').updateComment(gl, '55', 'b'), null);
+  await assert.rejects(new GitLab(replies({ status: 403, body: 'no' }).f, 'tok').updateComment(gl, '55', 'b'), /GitLab 403/);
+});
+
+const mr = { web_url: 'W', title: 'T', diff_refs: { head_sha: 'h1', base_sha: 'mb', start_sha: 'st' } };
+
+test('GitLab inline opens one discussion per finding at its position in the merge request diff', async () => {
+  const { f, seen } = replies(
+    { body: mr },
+    { body: { id: 'd1', notes: [{ id: 61 }] } },
+    { body: { id: 'd2', notes: [{ id: 62 }] } },
+  );
+  const posted: unknown[] = [];
+  const comments = [
+    { finding: 'F1-1', file: 'src/a.ts', line: 2, body: 'one' },
+    { finding: 'F1-2', file: 'src/n.ts', from: 'src/o.ts', line: 5, body: 'two' },
+  ];
+  await new GitLab(f, 'tok').inline(gl, { head: 'H1', note: 'N', comments }, (p) => posted.push(...p));
+  assert.ok(seen[0]?.url.endsWith('/merge_requests/7'));
+  assert.equal(seen[1]?.url, 'https://gitlab.example.com/api/v4/projects/g%2Fsub%2Fr/merge_requests/7/discussions');
+  assert.equal(seen[1]?.init?.method, 'POST');
+  const sent = seen.slice(1).map((x) => JSON.parse(String(x.init?.body)) as unknown);
+  const position = { position_type: 'text', base_sha: 'mb', start_sha: 'st', head_sha: 'h1' };
+  assert.deepEqual(sent, [
+    { body: 'one', position: { ...position, old_path: 'src/a.ts', new_path: 'src/a.ts', new_line: 2 } },
+    { body: 'two', position: { ...position, old_path: 'src/o.ts', new_path: 'src/n.ts', new_line: 5 } },
+  ]);
+  const url = 'https://gitlab.example.com/g/sub/r/-/merge_requests/7';
+  assert.deepEqual(posted, [
+    { finding: 'F1-1', id: 'd1', url: `${url}#note_61` },
+    { finding: 'F1-2', id: 'd2', url: `${url}#note_62` },
+  ]);
+});
+
+test('GitLab inline reports each discussion before a later one fails, and refuses a moved head', async () => {
+  const posted: unknown[] = [];
+  const comments = [
+    { finding: 'F1-1', file: 'a', line: 1, body: 'one' },
+    { finding: 'F1-2', file: 'b', line: 1, body: 'two' },
+  ];
+  const partial = replies({ body: mr }, { body: { id: 'd1', notes: [{ id: 61 }] } }, { status: 400, body: 'line_code invalid' });
+  await assert.rejects(
+    new GitLab(partial.f, 'tok').inline(gl, { head: 'h1', note: 'N', comments }, (p) => posted.push(...p)),
+    /GitLab 400/,
+  );
+  assert.deepEqual(posted.map((p) => (p as { finding: string }).finding), ['F1-1']);
+
+  const moved = replies({ body: mr });
+  await assert.rejects(new GitLab(moved.f, 'tok').inline(gl, { head: 'h2', note: 'N', comments }, () => {}), /head moved/);
+  assert.equal(moved.seen.length, 1);
+});

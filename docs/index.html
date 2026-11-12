@@ -734,7 +734,10 @@
             The guard stops this tool's <code>post</code> only, not an agent that calls the GitHub or GitLab API itself (<code>gh api</code>,
             <code>curl</code>, ...).
           </li>
-          <li data-i18n="lim.4">One summary note per round: no inline comments, no approving or merging.</li>
+          <li data-i18n="lim.4">
+            One note per pull request, edited each round. Line comments only with <code>post --inline</code>, on lines the pull
+            request adds. No approving or merging.
+          </li>
           <li data-i18n="lim.5">
             On Windows a <code>.cmd</code> tool (such as <code>npm</code>) is retried through <code>cmd.exe</code>, which expands
             <code>%VAR%</code> in the arguments.
@@ -828,7 +831,8 @@
           'lim.2': 'Agent khác dùng <code>reviewproof diff</code> và <code>reviewproof read</code>: đó là khai báo, không phải đo.',
           'lim.3':
             'Guard chỉ chặn lệnh <code>post</code> của công cụ này, không chặn agent tự gọi GitHub hay GitLab API (<code>gh api</code>, <code>curl</code>, ...).',
-          'lim.4': 'Mỗi vòng một nhận xét tóm tắt: không comment theo dòng, không approve, không merge.',
+          'lim.4':
+            'Mỗi pull request một nhận xét, sửa lại sau mỗi vòng. Comment theo dòng chỉ khi dùng <code>post --inline</code>, trên dòng pull request thêm vào. Không approve, không merge.',
           'lim.5':
             'Trên Windows, công cụ <code>.cmd</code> (như <code>npm</code>) được chạy lại qua <code>cmd.exe</code>, nên <code>%VAR%</code> trong tham số sẽ bị thay giá trị.',
           'rp.h2': 'Một lần review thật, phát lại',

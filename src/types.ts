@@ -64,7 +64,23 @@ export interface Round {
   verdict?: { value: 'pass' | 'not-yet'; summary: string; at: string };
   /** When `draft` last rendered the note; post only sends a draft written after the verdict. */
   draftAt?: string;
-  post?: { id: string; url: string; approvedBy: string; at: string };
+  post?: {
+    id: string;
+    url: string;
+    approvedBy: string;
+    at: string;
+    /** The note of an earlier round was edited to this round's note, not a new one posted. */
+    edited?: true;
+    /** Findings posted on their lines with post --inline. */
+    inline?: InlinePosted[];
+  };
+}
+
+/** A finding posted as a comment on its line: the comment (or the review holding it). */
+export interface InlinePosted {
+  finding: string;
+  id: string;
+  url: string;
 }
 
 export interface PrRef {

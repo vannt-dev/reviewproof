@@ -150,6 +150,8 @@ test('every spelling of the post command is denied', () => {
     'REVIEWPROOF POST',
     'reviewproof -x post',
     'reviewproof post --approved-by me',
+    'reviewproof post --inline --approved-by me',
+    'reviewproof post --new-comment --approved-by me',
   ]) assert.equal(denied(c), true, c);
   for (const c of [
     'reviewproof status',

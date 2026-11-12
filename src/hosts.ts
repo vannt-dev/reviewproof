@@ -1,12 +1,33 @@
 import type { PrInfo } from './rounds.ts';
-import type { PrRef } from './types.ts';
+import type { InlinePosted, PrRef } from './types.ts';
 import { GitHub } from './github.ts';
 import { GitLab } from './gitlab.ts';
+
+/** A finding to comment on its line: an added line of the pull request's diff at `head`. */
+export interface InlineComment {
+  finding: string;
+  file: string;
+  /** The file's path at the base, when it was renamed. */
+  from?: string;
+  line: number;
+  body: string;
+}
+
+export interface InlineRequest {
+  head: string;
+  /** The round's summary note, which every inline comment belongs to. */
+  note: string;
+  comments: InlineComment[];
+}
 
 export interface Host {
   resolve(ref: PrRef): Promise<PrInfo>;
   comment(ref: PrRef, body: string): Promise<{ id: string; url: string }>;
+  /** Replaces a comment's body; null when the comment is gone (deleted), any other failure throws. */
+  updateComment(ref: PrRef, id: string, body: string): Promise<{ id: string; url: string } | null>;
   readComment(ref: PrRef, id: string): Promise<string>;
+  /** Posts the comments on their lines; `posted` hears of each as soon as it exists on the host. */
+  inline(ref: PrRef, req: InlineRequest, posted: (p: InlinePosted[]) => void): Promise<void>;
 }
 
 const FORMS = [
