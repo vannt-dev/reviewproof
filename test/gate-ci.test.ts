@@ -142,6 +142,24 @@ test('a failed check stays next to the run that passed after it', async () => {
   assert.match(draft, /^- ci: test pass at [0-9a-f]{7} \(https:\S+\), 2 attempts \(attempt 1 failed\)$/m);
 });
 
+test('a check sits beside a failed local run of the same gate, and clears a verdict recorded before it', async () => {
+  const s = await started();
+  const local = await s.rp('gate', 'run', 'test', '--', process.execPath, '-e', 'process.exit(1)');
+  assert.equal(local.code, 1);
+  await steps(s, ['verdict', 'not-yet', '--summary', 'Tests fail here.']);
+  s.host.ci = [check(s, 'CI result', 'success')];
+  const r = await s.rp('gate', 'ci', 'CI result', '--as', 'test');
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /^verdict cleared: run reviewproof verdict again$/m);
+  assert.deepEqual(gates(s).map((g) => [g.attempt, g.kind, g.result, g.log !== undefined]), [
+    [1, undefined, 'fail', true],
+    [2, 'ci', 'pass', false],
+  ]);
+  await steps(s, ['verdict', 'pass', '--summary', 'Checked.'], ['draft']);
+  const draft = fs.readFileSync(path.join(new LedgerStore(s.home).dirFor(ref), 'drafts', 'round-1.md'), 'utf8');
+  assert.match(draft, /^- ci: test \(check `CI result`\) pass at [0-9a-f]{7} \(https:\S+\), 2 attempts \(attempt 1 failed\)$/m);
+});
+
 test('runs that share a name pass only when all of them passed', async () => {
   const s = await started();
   s.host.ci = [check(s, 'test', 'success'), check(s, 'test', 'failure', { url: `${URL}0` })];

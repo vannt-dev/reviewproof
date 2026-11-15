@@ -92,7 +92,10 @@ reviewproof gate ci --all                    # every finished check of the head,
   `requiredGates`. `--as NAME` picks the gate name instead.
 
 The draft shows such a gate with its run link:
-`- ci: tests (check `CI result`) pass at 5d6e7f8 (https://github.com/o/r/actions/runs/1/job/2), 1 attempt`.
+
+```text
+- ci: tests (check `CI result`) pass at 5d6e7f8 (https://github.com/o/r/actions/runs/1/job/2), 1 attempt
+```
 
 `post` sends the draft as a comment, reads it back, compares it with the draft and stores the
 comment's id and URL. A pull request has one note: a later round edits the note posted before
