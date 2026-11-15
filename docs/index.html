@@ -548,6 +548,7 @@
         <pre><span class="dim">$</span> reviewproof start o/r#12                  <span class="dim"># round 1 (a URL or gitlab:g/r!7 also work)</span>
 <span class="dim">$</span> reviewproof diff                          <span class="dim"># prints the round diff, counts the files read</span>
 <span class="dim">$</span> reviewproof gate run tests -- npm test    <span class="dim"># no shell; the log is kept, a rerun is attempt 2</span>
+<span class="dim">$</span> reviewproof gate ci "CI result"           <span class="dim"># or take a finished CI check of the head as the gate</span>
 <span class="dim">$</span> reviewproof gate skip e2e --reason "needs a staging server"
 <span class="dim">$</span> reviewproof add findings.json             <span class="dim"># sourced findings, linted</span>
 <span class="dim">$</span> reviewproof status                        <span class="dim"># what still blocks a verdict</span>

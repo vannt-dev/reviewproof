@@ -45,6 +45,7 @@ Run inside a checkout that is at the head of the pull request.
 reviewproof start o/r#12                  # round 1 (a URL or gitlab:g/r!7 also work)
 reviewproof diff                          # prints the round diff, counts the files read
 reviewproof gate run tests -- npm test    # no shell; the log is kept, a rerun is attempt 2
+reviewproof gate ci "CI result"           # or take a finished CI check of the head as the gate
 reviewproof gate skip e2e --reason "needs a staging server"
 reviewproof add findings.json             # sourced findings, linted
 reviewproof status                        # what still blocks a verdict
@@ -62,6 +63,36 @@ not count, and `gate run` says so. The verdict then asks for a new run (`gate te
 not at the round's head 5d6e7f8: run it again`). Attempts are only added, never replaced: the draft
 shows each gate's last result, the commit it ran at and the attempts that failed before it
 (`- test: pass at 5d6e7f8, 2 attempts (attempt 1 failed)`).
+
+### CI checks as gates
+
+`gate ci <check>` records a check of the pull request instead of running a command here (GitHub
+only; it reads through `gh` and writes nothing to GitHub). It asks for the check runs and commit
+statuses of the round's head, finds the one with that name (exactly, else ignoring case; a missing
+or unclear name lists the names there) and stores its name, conclusion, commit, run link and start
+and end times as a gate attempt. No log is kept.
+
+```sh
+reviewproof gate ci lint                     # gate "lint" from the check "lint"
+reviewproof gate ci "CI result" --as tests   # gate "tests" from the check "CI result"
+reviewproof gate ci --all                    # every finished check of the head, one gate each
+```
+
+- `success` is a pass. `failure`, `cancelled`, `timed_out` (and a status `error`) are a fail, and
+  the command exits 1.
+- A check that is queued or running is refused (`is not finished yet`): run the command again
+  later. A check that ended as `skipped`, `neutral` or anything else is refused too, as it shows
+  nothing either way. `--all` leaves these out and names them.
+- The check must have run on the round's head. One that ran on another commit is refused, the same
+  way a local run at another commit does not count.
+- When several runs share a name (a job that runs on push and on pull_request), the gate passes
+  only when all of them passed.
+- The gate is named after the check, with every run of other characters than letters, digits, `.`,
+  `_` and `-` turned into one `-` (`CI result` becomes `CI-result`); that is the name to put in
+  `requiredGates`. `--as NAME` picks the gate name instead.
+
+The draft shows such a gate with its run link:
+`- ci: tests (check `CI result`) pass at 5d6e7f8 (https://github.com/o/r/actions/runs/1/job/2), 1 attempt`.
 
 `post` sends the draft as a comment, reads it back, compares it with the draft and stores the
 comment's id and URL. A pull request has one note: a later round edits the note posted before
@@ -157,7 +188,7 @@ the reviewed repository. Each verdict and each post makes one commit, and the li
 ```text
 <host>/<owner>/<repo>/<number>/
   ledger.json                    # schemaVersion 1
-  logs/round-<k>/<gate>-<attempt>.log
+  logs/round-<k>/<gate>-<attempt>.log   # gate run only; a gate ci attempt has no log
   reads/round-<k>.jsonl          # one line per counted Read, diff or read
   drafts/round-<k>.md
   ledger.lock                    # held while a command changes this pull request; git-ignored
@@ -165,7 +196,7 @@ the reviewed repository. Each verdict and each post makes one commit, and the li
 
 reviewproof never writes a token to disk. The values of `*_TOKEN` variables are replaced by `***` in
 gate logs and in the command line stored for each gate attempt (`ledger.json` and the SARIF
-`commandLine`).
+`commandLine`), and in the check names and links that `gate ci` stores.
 
 ## Prior art
 

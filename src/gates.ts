@@ -3,10 +3,11 @@ import path from 'node:path';
 import { gitEnv } from './git-env.ts';
 import { runCapture } from './spawn.ts';
 import type { LedgerStore } from './store.ts';
+import type { CiCheck } from './hosts.ts';
 import type { GateAttempt, PrRef, Round } from './types.ts';
 
 // Longest values first, so a token that contains another one is replaced whole.
-function redactor(): (text: string) => string {
+export function redactor(): (text: string) => string {
   const secrets = Object.entries(process.env)
     .filter(([name, value]) => name.endsWith('_TOKEN') && value)
     .map(([, value]) => value as string)
@@ -75,6 +76,29 @@ export function recordGate(store: LedgerStore, ref: PrRef, round: Round, name: s
     log: path.relative(store.dirFor(ref), file).split(path.sep).join('/'),
     ...(run.head ? { head: run.head } : {}),
     ...(run.dirty ? { dirty: true as const } : {}),
+    at: new Date().toISOString(),
+  };
+  round.gates.push(g);
+  return g;
+}
+
+/** A finished CI check as an attempt: no command, no exit code and no log, only what the host said. */
+export function recordCi(round: Round, name: string, check: CiCheck, result: 'pass' | 'fail'): GateAttempt {
+  const g: GateAttempt = {
+    name,
+    attempt: nextAttempt(round, name),
+    argv: null,
+    exitCode: null,
+    result,
+    head: check.sha,
+    kind: 'ci',
+    ci: {
+      check: check.name,
+      conclusion: check.conclusion,
+      ...(check.url ? { url: check.url } : {}),
+      ...(check.startedAt ? { startedAt: check.startedAt } : {}),
+      ...(check.completedAt ? { completedAt: check.completedAt } : {}),
+    },
     at: new Date().toISOString(),
   };
   round.gates.push(g);

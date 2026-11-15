@@ -47,7 +47,7 @@ function invocationOf(round: Round, name: string): object {
   return {
     executionSuccessful: last?.result === 'pass',
     commandLine: last?.argv?.join(' '),
-    properties: { gate: name, result: last?.result ?? 'missing' },
+    properties: { gate: name, result: last?.result ?? 'missing', ...(last?.ci ? { ci: last.ci } : {}) },
   };
 }
 

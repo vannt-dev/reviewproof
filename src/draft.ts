@@ -16,6 +16,12 @@ function gateLine(name: string, round: Round): string {
   const off = offHead(round, last);
   const failed = mine.filter((g) => g !== last && g.result === 'fail').map((g) => g.attempt);
   const before = failed.length ? ` (attempt${failed.length === 1 ? '' : 's'} ${failed.join(', ')} failed)` : '';
+  if (last.ci) {
+    // A CI check has no local log: the line names the check and links its run instead.
+    const check = last.ci.check === name ? '' : ` (check \`${last.ci.check.replace(/`/g, "'")}\`)`;
+    const url = last.ci.url ? ` (${last.ci.url})` : '';
+    return `- ci: ${name}${check} ${last.result}${where}${url}, ${mine.length} attempt${mine.length === 1 ? '' : 's'}${before}`;
+  }
   return `- ${name}: ${last.result}${why}${where}${off ? ` (${off})` : ''}, ${mine.length} attempt${mine.length === 1 ? '' : 's'}${before}`;
 }
 

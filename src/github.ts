@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Host, InlineRequest } from './hosts.ts';
+import type { CiCheck, Host, InlineRequest } from './hosts.ts';
 import type { PrInfo } from './rounds.ts';
 import { runCapture } from './spawn.ts';
 import type { InlinePosted, PrRef } from './types.ts';
@@ -14,6 +14,23 @@ function gh(args: string[]): string {
   const r = runCapture(['gh', ...args], process.cwd(), GH_ENV);
   if (r.status !== 0) throw new Error(`gh ${args[0] ?? ''} failed: ${r.error ?? r.output.trim()}`);
   return r.stdout;
+}
+
+const PAGE = 100;
+
+interface CheckRun {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  head_sha: string;
+  html_url: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface CombinedStatus {
+  sha: string;
+  statuses: { context: string; state: string; target_url: string | null; created_at: string; updated_at: string }[];
 }
 
 export class GitHub implements Host {
@@ -76,6 +93,44 @@ export class GitHub implements Host {
       comments: req.comments.map((c) => ({ path: c.file, line: c.line, side: 'RIGHT', body: c.body })),
     }) as { id: number; html_url: string };
     posted(req.comments.map((c) => ({ finding: c.finding, id: String(j.id), url: j.html_url })));
+  }
+
+  // A list of a commit, page by page until a page is not full.
+  private pages<J, T>(ref: PrRef, sha: string, list: string, items: (j: J) => T[]): T[] {
+    const all: T[] = [];
+    for (let page = 1; ; page++) {
+      const got = items(this.api(ref, `repos/${ref.project}/commits/${sha}/${list}?per_page=${PAGE}&page=${page}`) as J);
+      all.push(...got);
+      if (got.length < PAGE) return all;
+    }
+  }
+
+  // Check runs (Actions and other apps) and commit statuses (older integrations) are two lists.
+  // Each entry keeps the commit the host names for it, so the caller can hold it to the head.
+  async checks(ref: PrRef, sha: string): Promise<CiCheck[]> {
+    const runs = this.pages(ref, sha, 'check-runs', (j: { check_runs: CheckRun[] }) => j.check_runs).map(
+      (c): CiCheck => ({
+        name: c.name,
+        conclusion: c.status === 'completed' ? (c.conclusion ?? 'none') : c.status,
+        sha: c.head_sha,
+        ...(c.html_url ? { url: c.html_url } : {}),
+        ...(c.started_at ? { startedAt: c.started_at } : {}),
+        ...(c.completed_at ? { completedAt: c.completed_at } : {}),
+      }),
+    );
+    const statuses = this.pages(ref, sha, 'status', (j: CombinedStatus) =>
+      j.statuses.map(
+        (s): CiCheck => ({
+          name: s.context,
+          conclusion: s.state,
+          sha: j.sha,
+          ...(s.target_url ? { url: s.target_url } : {}),
+          startedAt: s.created_at,
+          ...(s.state === 'pending' ? {} : { completedAt: s.updated_at }),
+        }),
+      ),
+    );
+    return [...runs, ...statuses];
   }
 
   async readComment(ref: PrRef, id: string): Promise<string> {
