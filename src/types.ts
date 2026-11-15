@@ -40,7 +40,20 @@ export interface GateAttempt {
   head?: string;
   /** Tracked files had uncommitted changes when the command ran. */
   dirty?: true;
+  /** Set when the evidence is a CI check of the pull request, not a command run here. */
+  kind?: 'ci';
+  ci?: CiEvidence;
   at: string;
+}
+
+/** What the host said about a check at `GateAttempt.head`; no log is kept for it. */
+export interface CiEvidence {
+  /** The check's name on the host; the gate name is this, made safe (or the one given with --as). */
+  check: string;
+  conclusion: string;
+  url?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 export interface ReadMark {

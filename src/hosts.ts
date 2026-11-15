@@ -20,6 +20,18 @@ export interface InlineRequest {
   comments: InlineComment[];
 }
 
+/** One check run or commit status as the host reports it for a commit. */
+export interface CiCheck {
+  name: string;
+  /** The conclusion, or the status while there is none yet (queued, in_progress, pending). */
+  conclusion: string;
+  /** The commit the host says it ran on. */
+  sha: string;
+  url?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
 export interface Host {
   resolve(ref: PrRef): Promise<PrInfo>;
   comment(ref: PrRef, body: string): Promise<{ id: string; url: string }>;
@@ -28,6 +40,8 @@ export interface Host {
   readComment(ref: PrRef, id: string): Promise<string>;
   /** Posts the comments on their lines; `posted` hears of each as soon as it exists on the host. */
   inline(ref: PrRef, req: InlineRequest, posted: (p: InlinePosted[]) => void): Promise<void>;
+  /** Every check run and commit status of a commit; absent on a host whose checks are not read. */
+  checks?(ref: PrRef, sha: string): Promise<CiCheck[]>;
 }
 
 const FORMS = [

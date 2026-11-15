@@ -23,6 +23,9 @@ read the message, fix what it names, and run the command again. Do not work arou
    build). The command runs without a shell and the log is kept. A failed run stays on the
    record; fixing and rerunning makes attempt 2. If a gate cannot run, say so honestly:
    `reviewproof gate skip <name> --reason "..."`. A skipped gate blocks verdict `pass`.
+   When the pull request's CI already ran the gate on this head (GitHub), record that instead of
+   running it again: `reviewproof gate ci "<check name>" [--as <name>]`, or `--all` for every
+   finished check. A check still running is refused; try again later, do not skip it.
    Start the gates in the background right after step 1 (see Work in parallel).
 5. Review the diff against the repository's own rules (contributing guide, style and design
    documents, existing code), not against your taste. Each finding needs a source you can point to.

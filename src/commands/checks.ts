@@ -1,6 +1,9 @@
 import path from 'node:path';
-import { captureGate, notChecked, recordGate } from '../gates.ts';
-import { assertOpen, locked, openReview, saveChange, str, take, type Command } from './context.ts';
+import { byName, ciResult, cleanCheck, findCheck, gateNameOf } from '../ci.ts';
+import { captureGate, notChecked, recordCi, recordGate } from '../gates.ts';
+import type { CiCheck } from '../hosts.ts';
+import type { GateAttempt } from '../types.ts';
+import { assertOpen, bullets, locked, openReview, saveChange, str, take, type Command } from './context.ts';
 import { reading } from './reading.ts';
 
 // The name becomes a log file name (logs/round-<n>/<name>-<attempt>.log), on every OS.
@@ -54,4 +57,60 @@ const gateSkip: Command = {
   },
 };
 
-export const checks: Record<string, Command> = { 'gate run': gateRun, 'gate skip': gateSkip, ...reading };
+function ciLine(g: GateAttempt): string {
+  const url = g.ci?.url ? `, ${g.ci.url}` : '';
+  return `gate ${g.name} attempt ${g.attempt}: ${g.result} (ci check "${g.ci?.check}" ${g.ci?.conclusion} at ${g.head?.slice(0, 7)}${url})`;
+}
+
+// The check ran on the host, so the checkout's state does not matter: what ties it to the round
+// is the commit the host names for it.
+const gateCi: Command = {
+  args: '<check> [--as NAME] | --all',
+  about: "record a CI check at the round's head as a gate (GitHub); exit 1 when it failed",
+  options: { as: { type: 'string' }, all: { type: 'boolean' } },
+  async run(env, a) {
+    const as = str(a, 'as');
+    const all = a.values.all === true;
+    if (all && as !== undefined) throw new Error('--as names one gate: it does not go with --all');
+    if (all) take(a);
+    const wanted = all ? undefined : take(a, '<check>')[0];
+    if (as !== undefined) gateName(as);
+    const seen = assertOpen(openReview(env));
+    const head = seen.round.head;
+    const host = env.host(seen.ref);
+    if (!host.checks) throw new Error('only GitHub checks are read: record this gate with gate run or gate skip');
+    // The host is asked before the lock, as a gate's command runs before it.
+    const found = (await host.checks(seen.ref, head)).map(cleanCheck);
+    const picked: { name: string; check: CiCheck; result: 'pass' | 'fail' }[] = [];
+    const left: string[] = [];
+    for (const check of wanted === undefined ? byName(found) : [findCheck(found, wanted, head)]) {
+      const r = ciResult(check, head);
+      if ('refused' in r) {
+        if (!all) throw new Error(`check "${check.name}" ${r.refused}: nothing recorded`);
+        left.push(`${check.name} ${r.refused}`);
+        continue;
+      }
+      const name = as ?? gateNameOf(check.name);
+      if (name === '') throw new Error(`check "${check.name}" has no letter or digit to name a gate: record it alone with --as NAME`);
+      picked.push({ name, check, result: r.result });
+    }
+    const twice = picked.filter((p) => picked.some((q) => q !== p && q.name === p.name)).map((p) => p.check.name);
+    if (twice.length > 0) {
+      throw new Error(`these checks would share a gate name; record each alone with --as NAME:\n${bullets(twice)}`);
+    }
+    if (picked.length === 0) {
+      throw new Error(`no finished check at the round's head ${head.slice(0, 7)}${left.length > 0 ? `:\n${bullets(left)}` : ''}`);
+    }
+    const gates = locked(env, seen, (r) => {
+      const round = assertOpen(r).round;
+      const gates = picked.map((p) => recordCi(round, p.name, p.check, p.result));
+      saveChange(env, r);
+      return gates;
+    });
+    for (const g of gates) console.log(ciLine(g));
+    for (const l of left) console.log(`not recorded: ${l}`);
+    return gates.every((g) => g.result === 'pass') ? 0 : 1;
+  },
+};
+
+export const checks: Record<string, Command> = { 'gate run': gateRun, 'gate ci': gateCi, 'gate skip': gateSkip, ...reading };

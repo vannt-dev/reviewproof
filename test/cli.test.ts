@@ -20,7 +20,7 @@ test('--help lists every command on one line each; unknown commands and options 
   const { rp } = setup();
   const r = await rp('--help');
   assert.equal(r.code, 0);
-  for (const name of ['start', 'add', 'mark', 'status', 'gate run', 'gate skip', 'diff', 'read', 'skip']) {
+  for (const name of ['start', 'add', 'mark', 'status', 'gate run', 'gate ci', 'gate skip', 'diff', 'read', 'skip']) {
     assert.match(r.out, new RegExp(`^  ${name} `, 'm'), name);
   }
   for (const name of ['verdict', 'draft', 'post', 'hook']) assert.match(r.out, new RegExp(`^  ${name}\\b`, 'm'));

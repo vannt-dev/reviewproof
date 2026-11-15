@@ -17,7 +17,7 @@ const status: Command = {
     const names = [...new Set([...r.config.requiredGates, ...round.gates.map((g) => g.name)])];
     const gates = names.map((n) => {
       const mine = round.gates.filter((g) => g.name === n);
-      return mine.length === 0 ? `${n} missing` : `${n} ${mine.at(-1)?.result} (${count(mine.length, 'attempt')})`;
+      return mine.length === 0 ? `${n} missing` : `${n} ${mine.at(-1)?.result} (${mine.at(-1)?.ci ? 'ci, ' : ''}${count(mine.length, 'attempt')})`;
     });
     const total = cov.read.length + cov.partial.length + cov.unread.length;
     const open = l.findings.filter((f) => ['open', 'reopened'].includes(currentStatus(f)));

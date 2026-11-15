@@ -70,6 +70,8 @@ test('a posted round refuses every change', async () => {
     ['mark', 'F1-1', 'verified'],
     passTest,
     ['gate', 'skip', 'lint', '--reason', 'none'],
+    ['gate', 'ci', 'test'],
+    ['gate', 'ci', '--all'],
     ['skip', 'src/c.ts', '--reason', 'generated'],
     ['diff'],
     ['read', 'src/a.ts'],
