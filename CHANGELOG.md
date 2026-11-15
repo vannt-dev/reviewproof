@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/vannt-dev/reviewproof/compare/v0.5.0...v0.6.0) (2026-11-15)
+
+
+### Features
+
+* **gate:** record a pull request's CI check as a gate with gate ci ([#23](https://github.com/vannt-dev/reviewproof/issues/23)) ([ade34b7](https://github.com/vannt-dev/reviewproof/commit/ade34b7e02a3b1f6a2bc51dcefb0ef01eaa02780))
+
 ## [0.5.0](https://github.com/vannt-dev/reviewproof/compare/v0.4.0...v0.5.0) (2026-11-12)
 
 
