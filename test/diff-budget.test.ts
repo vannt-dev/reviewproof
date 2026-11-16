@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { git, removeTmp, setup, steps } from './e2e-helper.ts';
+import { removeTmp, setup, steps } from './e2e-helper.ts';
 
 // Each test file runs in its own process, so the budget set here reaches no other file.
 const budget = (chars: number): void => void (process.env.REVIEWPROOF_DIFF_BUDGET = String(chars));
 const tooLarge = (file: string): string =>
   `${file}: its diff is larger than one call can show; open it with Read in parts (each part is recorded) ` +
-  `or record what you read with reviewproof read ${file} --lines a-b\n`;
+  `or print it in parts with reviewproof read ${file} --lines a-b\n`;
 test.after(removeTmp);
 
 test('a file larger than the budget is never printed or counted, even asked for alone', async () => {
@@ -27,7 +27,8 @@ test('a file larger than the budget is never printed or counted, even asked for 
   assert.match(alone.out, /0 changed files counted as read/);
   assert.equal(alone.err, tooLarge('src/big.ts'));
   assert.match((await s.rp('status')).out, /unread:\n {2}- src\/big\.ts\n/);
-  assert.equal((await s.rp('read', 'src/big.ts', '--lines', '1-40')).code, 0);
+  // read prints what it counts, so a file too large for one call is read in parts that fit.
+  for (const lines of ['1-13', '14-26', '27-40']) assert.equal((await s.rp('read', 'src/big.ts', '--lines', lines)).code, 0);
   assert.match((await s.rp('status')).out, /read 3 of 3 changed files/);
 });
 
@@ -67,12 +68,11 @@ test('an oversized deleted file is counted only by a whole-file read of its old 
   s.push('src/d.ts', 'd\n');
   await steps(s, ['start', 'o/r#1']);
   budget(10);
-  const from = git(s.checkout, 'rev-parse', 'origin/main'); // round 1 starts at the merge-base
   const r = await s.rp('diff', 'src/b.ts');
   assert.equal(
     r.err,
-    `src/b.ts: deleted, and its diff is larger than one call can show; read its old content ` +
-      `(git show ${from}:src/b.ts) and record it with reviewproof read src/b.ts\n`,
+    'src/b.ts: deleted, and its diff is larger than one call can show; print its old content ' +
+      'with reviewproof read src/b.ts (--lines a-b for a part)\n',
   );
   const unread = /unread:[^]*- src\/b\.ts/;
   await s.rp('read', 'src/b.ts', '--lines', '1-1');
