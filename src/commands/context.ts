@@ -7,6 +7,7 @@ import { activeFor } from '../active.ts';
 import { loadConfig, type Config } from '../config.ts';
 import { coverage, type Coverage } from '../coverage.ts';
 import { changedFiles } from '../diff.ts';
+import { evidenceState, type EvidenceState } from '../evidence.ts';
 import { hostFor, type Host } from '../hosts.ts';
 import { allReads } from '../reads.ts';
 import { LedgerStore } from '../store.ts';
@@ -149,6 +150,13 @@ export function saveChange(env: Env, r: Review): void {
   delete r.round.draftAt;
   env.store.save(r.ledger);
   if (cleared) console.log('verdict cleared: run reviewproof verdict again');
+}
+
+// Evidence is judged over the whole pull request, not the round's diff: from the merge-base.
+export function evidenceOf(r: Review): EvidenceState | null {
+  if (r.config.evidence.length === 0) return null;
+  const from = mergeBase(r.checkout, r.round.base, r.round.head);
+  return evidenceState(r.checkout, from, r.round.head, r.config.evidence, r.config.evidenceCovers);
 }
 
 // Hook reads live in their own file, so coverage always merges them in.

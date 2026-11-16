@@ -1,7 +1,7 @@
 import { formatLocation } from '../location.ts';
 import { carried, currentStatus } from '../rounds.ts';
 import { verdictBlockers } from '../verdict.ts';
-import { bullets, count, coverageOf, openReview, prName, take, type Command } from './context.ts';
+import { bullets, count, coverageOf, evidenceOf, openReview, prName, take, type Command } from './context.ts';
 
 // The summary is not written yet; a neutral one leaves only the round's own blockers.
 const NEUTRAL_SUMMARY = 'status';
@@ -21,7 +21,7 @@ const status: Command = {
     });
     const total = cov.read.length + cov.partial.length + cov.unread.length;
     const open = l.findings.filter((f) => ['open', 'reopened'].includes(currentStatus(f)));
-    const blockers = verdictBlockers(l, cov, r.config, 'pass', NEUTRAL_SUMMARY);
+    const blockers = verdictBlockers(l, cov, r.config, 'pass', NEUTRAL_SUMMARY, evidenceOf(r));
     const out = [
       `${prName(r.ref)} round ${round.n}: head ${round.head}, diff from ${round.from}`,
       `gates: ${gates.join(', ') || 'none'}`,

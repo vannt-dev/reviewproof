@@ -121,6 +121,8 @@ test('loadConfig prefers the checkout file and fills defaults', () => {
     requiredGates: [],
     skip: ['x'],
     hedgeWords: ['probably', 'seems', 'might', 'maybe', 'likely'],
+    evidence: [],
+    evidenceCovers: ['**'],
   });
 });
 

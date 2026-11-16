@@ -1,4 +1,5 @@
 import type { Coverage } from './coverage.ts';
+import { evidenceLines, type EvidenceState } from './evidence.ts';
 import { offHead } from './gates.ts';
 import { currentStatus } from './rounds.ts';
 import type { Finding, GateAttempt, Ledger, Location, Round } from './types.ts';
@@ -48,7 +49,7 @@ function details(findings: Finding[]): string[] {
   ];
 }
 
-export function renderDraft(l: Ledger, cov: Coverage): string {
+export function renderDraft(l: Ledger, cov: Coverage, evidence: EvidenceState | null = null): string {
   const round = l.rounds[l.rounds.length - 1];
   if (!round) throw new Error('ledger has no round yet; start one first');
   const v = round.verdict;
@@ -80,6 +81,7 @@ export function renderDraft(l: Ledger, cov: Coverage): string {
     '',
     ...(names.length > 0 ? names.map((n) => gateLine(n, round)) : ['none']),
     '',
+    ...evidenceLines(evidence),
     '### Coverage',
     '',
     `read ${cov.read.length} of ${total} changed files (opened with Read or reviewproof diff)${skipped ? `; skipped: ${skipped}` : ''}`,

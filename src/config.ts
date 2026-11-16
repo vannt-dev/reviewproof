@@ -5,12 +5,18 @@ export interface Config {
   requiredGates: string[];
   skip: string[];
   hedgeWords: string[];
+  /** Evidence files (screenshots, reports) that must be newer than the last change they cover. */
+  evidence: string[];
+  /** The files whose change makes evidence stale. */
+  evidenceCovers: string[];
 }
 
 const DEFAULTS: Config = {
   requiredGates: [],
   skip: ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', '**/*.snap'],
   hedgeWords: ['probably', 'seems', 'might', 'maybe', 'likely'],
+  evidence: [],
+  evidenceCovers: ['**'],
 };
 
 // A bad file must say which file, or the reader hunts for it.
@@ -37,5 +43,11 @@ export function loadConfig(checkout: string, home: string): Config {
     const v = raw[key];
     return Array.isArray(v) && v.every((s) => typeof s === 'string') ? v : [...DEFAULTS[key]];
   };
-  return { requiredGates: list('requiredGates'), skip: list('skip'), hedgeWords: list('hedgeWords') };
+  return {
+    requiredGates: list('requiredGates'),
+    skip: list('skip'),
+    hedgeWords: list('hedgeWords'),
+    evidence: list('evidence'),
+    evidenceCovers: list('evidenceCovers'),
+  };
 }

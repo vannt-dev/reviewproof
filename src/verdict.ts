@@ -1,5 +1,6 @@
 import type { Config } from './config.ts';
 import type { Coverage } from './coverage.ts';
+import { staleLine, type EvidenceState } from './evidence.ts';
 import { gateState } from './gates.ts';
 import { hedges } from './lint.ts';
 import { carried, currentStatus } from './rounds.ts';
@@ -12,6 +13,7 @@ export function verdictBlockers(
   cfg: Config,
   value: 'pass' | 'not-yet',
   summary: string,
+  evidence: EvidenceState | null = null,
 ): string[] {
   const round = l.rounds[l.rounds.length - 1];
   if (!round) throw new Error('ledger has no round yet; start one first');
@@ -36,6 +38,7 @@ export function verdictBlockers(
       (f) => f.severity === 'blocking' && currentStatus(f) !== 'verified' && currentStatus(f) !== 'withdrawn',
     );
     out.push(...open.map((f) => `blocking finding ${f.id} is ${currentStatus(f)}`));
+    out.push(...(evidence?.stale ?? []).map(staleLine));
   }
   out.push(...hedges(summary, cfg.hedgeWords).map((w) => `summary hedges: ${w}`));
   if (summary.trim() === '') out.push('summary is empty');
