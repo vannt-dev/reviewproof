@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0](https://github.com/vannt-dev/reviewproof/compare/v0.6.0...v0.7.0) (2026-11-16)
+
+
+### Features
+
+* backtest a merged pull request against its human review ([#27](https://github.com/vannt-dev/reviewproof/issues/27)) ([94e154d](https://github.com/vannt-dev/reviewproof/commit/94e154d87921b58572780d276b8d3bbbb3216c5e))
+* **draft:** group skipped files in the note ([#29](https://github.com/vannt-dev/reviewproof/issues/29)) ([59c2131](https://github.com/vannt-dev/reviewproof/commit/59c2131272dd8d3f86f0cdc63905bf23d41e9c52))
+* **read:** print what it counts as read ([#28](https://github.com/vannt-dev/reviewproof/issues/28)) ([a306776](https://github.com/vannt-dev/reviewproof/commit/a3067764462159a84ee1748d4172d2acc6b54339))
+* stale evidence blocks verdict pass ([#25](https://github.com/vannt-dev/reviewproof/issues/25)) ([0e18538](https://github.com/vannt-dev/reviewproof/commit/0e18538edffb0e2d4d6d2b4c4726030e6a4992a6))
+
 ## [0.6.0](https://github.com/vannt-dev/reviewproof/compare/v0.5.0...v0.6.0) (2026-11-15)
 
 
