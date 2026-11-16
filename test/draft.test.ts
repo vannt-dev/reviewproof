@@ -72,3 +72,24 @@ test('a finding body is in the draft under its id, and no details section withou
   );
   assert.doesNotMatch(out, /\*\*F2-2 No body here\*\*/);
 });
+
+test('skipped files are grouped: by the config pattern that matched, or by the reason given', () => {
+  const evidence = Array.from({ length: 18 }, (_, i) => ({ file: `work/REQ-1/evidence/shot-${i + 1}.png`, reason: 'config', pattern: 'work/**/evidence/**' }));
+  const out = renderDraft(ready(), {
+    ...cov,
+    skipped: [
+      ...evidence,
+      { file: 'x.lock', reason: 'config', pattern: '*.lock' },
+      { file: 'gen/a.ts', reason: 'generated' },
+      { file: 'gen/b.ts', reason: 'generated' },
+      { file: 'gen/c.ts', reason: 'generated' },
+      { file: 'gen/d.ts', reason: 'generated' },
+      { file: 'docs/x.md', reason: 'docs only' },
+    ],
+  });
+  assert.match(
+    out,
+    /; skipped: 18 files matching `work\/\*\*\/evidence\/\*\*` \(config\), x\.lock \(config\), 4 files \(generated\): gen\/a\.ts, gen\/b\.ts, gen\/c\.ts and 1 more, docs\/x\.md \(docs only\)$/m,
+  );
+  assert.doesNotMatch(out, /shot-2\.png/);
+});

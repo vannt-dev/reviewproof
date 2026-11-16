@@ -49,6 +49,28 @@ function details(findings: Finding[]): string[] {
   ];
 }
 
+// The note names a skipped file only while that stays short: files a config glob left out are
+// counted under the glob, files skipped for one reason under that reason (a few names, then a count).
+function skippedText(skipped: Coverage['skipped']): string {
+  const groups = new Map<string, { files: string[]; pattern?: string; reason: string }>();
+  for (const s of skipped) {
+    const key = s.pattern !== undefined ? `glob ${s.pattern}` : `reason ${s.reason}`;
+    const g = groups.get(key) ?? { files: [], reason: s.reason, ...(s.pattern !== undefined ? { pattern: s.pattern } : {}) };
+    g.files.push(s.file);
+    groups.set(key, g);
+  }
+  const SHOWN = 3;
+  return [...groups.values()]
+    .map((g) => {
+      if (g.files.length === 1) return `${g.files[0]} (${g.reason})`;
+      if (g.pattern !== undefined) return `${g.files.length} files matching \`${g.pattern}\` (${g.reason})`;
+      const names = g.files.slice(0, SHOWN).join(', ');
+      const more = g.files.length > SHOWN ? ` and ${g.files.length - SHOWN} more` : '';
+      return `${g.files.length} files (${g.reason}): ${names}${more}`;
+    })
+    .join(', ');
+}
+
 export function renderDraft(l: Ledger, cov: Coverage, evidence: EvidenceState | null = null): string {
   const round = l.rounds[l.rounds.length - 1];
   if (!round) throw new Error('ledger has no round yet; start one first');
@@ -60,7 +82,7 @@ export function renderDraft(l: Ledger, cov: Coverage, evidence: EvidenceState | 
       `| ${f.id} | ${f.severity} | ${f.source.kind}: ${cell(f.source.ref)} | ${cell(at(f.location))} | ${cell(f.title)} |`,
   );
   const names = [...new Set(round.gates.map((g) => g.name))];
-  const skipped = cov.skipped.map((s) => `${s.file} (${s.reason})`).join(', ');
+  const skipped = skippedText(cov.skipped);
   const total = cov.read.length + cov.partial.length + cov.unread.length;
   return [
     `## Review round ${round.n} (head ${round.head})`,

@@ -123,11 +123,11 @@ test('a rename without edits counts as read by any non-partial read', () => {
   assert.deepEqual(coverage(ch, [mark('n.ts', { range: [1, 1] })], [], []).read, ['n.ts']);
 });
 
-test('explicit skips keep their reason, glob skips get config', () => {
+test('explicit skips keep their reason, glob skips get config and the glob that matched', () => {
   const r = cov([], [{ file: 'b.ts', reason: 'generated' }], ['package-lock.json']);
   assert.deepEqual(r.skipped, [
     { file: 'b.ts', reason: 'generated' },
-    { file: 'package-lock.json', reason: 'config' },
+    { file: 'package-lock.json', reason: 'config', pattern: 'package-lock.json' },
   ]);
   assert.ok(!r.unread.includes('b.ts'));
 });
