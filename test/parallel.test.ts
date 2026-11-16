@@ -78,11 +78,17 @@ test('a log left by an attempt the ledger does not hold keeps its number and its
 test('a gate that ran for a round followed by a new one meanwhile is refused, not recorded', async () => {
   const s = await started();
   const running = path.join(s.root, 'gate-running');
-  const script = `require('fs').writeFileSync(${JSON.stringify(running)}, ''); setTimeout(() => {}, 1000)`;
+  const go = path.join(s.root, 'gate-go');
+  // The gate runs until the new round has started, however slow the runner is.
+  const script =
+    `const fs = require('fs'); fs.writeFileSync(${JSON.stringify(running)}, ''); ` +
+    `const end = Date.now() + 30000; ` +
+    `const t = setInterval(() => { if (fs.existsSync(${JSON.stringify(go)}) || Date.now() > end) clearInterval(t); }, 20)`;
   const gate = cli(s, 'gate', 'run', 'test', '--', process.execPath, '-e', script);
   for (let i = 0; i < 500 && !fs.existsSync(running); i++) await new Promise((r) => setTimeout(r, 20));
   s.push('src/b.ts', 'b2\n');
   const next = await s.rp('start', 'o/r#1');
+  fs.writeFileSync(go, '');
   assert.equal(next.code, 0, next.err);
   const r = await gate;
   assert.equal(r.code, 1);
