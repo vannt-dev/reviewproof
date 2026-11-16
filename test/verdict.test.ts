@@ -12,6 +12,8 @@ const cfg: Config = {
   requiredGates: ['test'],
   skip: [],
   hedgeWords: ['probably'],
+  evidence: [],
+  evidenceCovers: ['**'],
 };
 const at = { file: 'a.ts', line: 1, sha: 'h2' };
 const readyCov = (): Coverage => ({

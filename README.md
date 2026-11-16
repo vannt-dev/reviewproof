@@ -181,6 +181,25 @@ not valid JSON is an error.
 | `requiredGates` | `[]` | gate names that must have a finished run before a verdict |
 | `skip` | `["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "**/*.snap"]` | changed files left out of coverage |
 | `hedgeWords` | `["probably", "seems", "might", "maybe", "likely"]` | words refused in a verdict summary |
+| `evidence` | `[]` | evidence files (screenshots, reports) that must be newer than the code they show (see Stale evidence) |
+| `evidenceCovers` | `["**"]` | the files whose change makes the evidence stale |
+
+### Stale evidence
+
+A screenshot or a test report shows the code as it was when it was made. With `evidence` set
+(for example `["docs/evidence/**", "*.png"]`), reviewproof looks at the pull request's own commits
+(first parent, from the merge-base; what a merge of the base branch brought in does not count). An
+evidence file the pull request changed is stale when its last change is in an older commit than the
+newest change to a file it covers (`evidenceCovers`, every file by default, evidence files left
+out). Stale evidence blocks `verdict pass`, `status` lists it, and the draft has an Evidence section:
+
+```text
+- evidence docs/evidence/list.png was last changed at 1a2b3c4, before src/list.ts changed at 5d6e7f8: make it again at the head
+```
+
+Set `evidenceCovers` to the code the evidence shows (`["src/**"]`) so that a README change after
+the screenshots does not make them stale. Evidence the pull request did not change, or deleted, is
+not judged.
 
 ## Ledger
 

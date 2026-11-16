@@ -7,7 +7,7 @@ import { inlinePlan, type InlinePlan } from '../inline.ts';
 import type { InlinePosted, Round } from '../types.ts';
 import { verdictBlockers } from '../verdict.ts';
 import {
-  assertOpen, bullets, coverageOf, locked, mergeBase, openReview, prName, str, take,
+  assertOpen, bullets, coverageOf, evidenceOf, locked, mergeBase, openReview, prName, str, take,
   type Command, type Env, type Review,
 } from './context.ts';
 
@@ -36,7 +36,7 @@ const verdict: Command = {
     const summary = (str(a, 'summary') ?? '').trim();
     // Checked and recorded in one turn of the lock: a change landing meanwhile is seen, not lost.
     return locked(env, seen, (r) => {
-      const blockers = verdictBlockers(assertOpen(r).ledger, coverageOf(env, r), r.config, value, summary);
+      const blockers = verdictBlockers(assertOpen(r).ledger, coverageOf(env, r), r.config, value, summary, evidenceOf(r));
       if (blockers.length > 0) {
         console.error(`verdict ${value} refused:\n${bullets(blockers)}`);
         return 1;
@@ -60,7 +60,7 @@ const draft: Command = {
   async run(env, a) {
     take(a);
     return locked(env, openReview(env), (r) => {
-      const md = renderDraft(assertOpen(r).ledger, coverageOf(env, r));
+      const md = renderDraft(assertOpen(r).ledger, coverageOf(env, r), evidenceOf(r));
       const file = env.store.writeDraft(r.ref, r.round.n, md);
       r.round.draftAt = env.now().toISOString();
       env.store.save(r.ledger);
@@ -104,10 +104,11 @@ const post: Command = {
     const body = fs.readFileSync(file, 'utf8');
     if (!round.draftAt || round.draftAt < v.at) throw new Error('the draft is older than the verdict: run reviewproof draft');
     const cov = coverageOf(env, r);
+    const evidence = evidenceOf(r);
     // A draft edited by hand would post claims the ledger does not hold.
-    if (!sameNote(renderDraft(r.ledger, cov), body)) throw new Error('the draft file differs from the ledger: run reviewproof draft');
+    if (!sameNote(renderDraft(r.ledger, cov, evidence), body)) throw new Error('the draft file differs from the ledger: run reviewproof draft');
     // The note states this verdict, so it must still hold for the ledger as it is now.
-    const blockers = verdictBlockers(r.ledger, cov, r.config, v.value, v.summary);
+    const blockers = verdictBlockers(r.ledger, cov, r.config, v.value, v.summary, evidence);
     if (blockers.length > 0) {
       console.error(`the ledger changed since the verdict: run reviewproof verdict again\n${bullets(blockers)}`);
       return 1;
@@ -212,7 +213,7 @@ function record(env: Env, seen: Review, v: NonNullable<Round['verdict']>, post: 
       const changed = [
         ...(now.verdict?.at === v.at ? [] : ['the verdict was cleared or recorded again']),
         ...(now.draftAt === seen.round.draftAt ? [] : ['the draft was written again']),
-        ...verdictBlockers(l, coverageOf(env, { ...seen, ledger: l, round: now }), seen.config, v.value, v.summary),
+        ...verdictBlockers(l, coverageOf(env, { ...seen, ledger: l, round: now }), seen.config, v.value, v.summary, evidenceOf(seen)),
       ];
       now.post = post;
       env.store.save(l);

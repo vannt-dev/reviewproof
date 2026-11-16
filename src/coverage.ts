@@ -26,7 +26,7 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${re}$`);
 }
 
-function globMatches(glob: string, file: string): boolean {
+export function globMatches(glob: string, file: string): boolean {
   const re = globToRegExp(glob);
   if (re.test(file)) return true;
   // A pattern without a slash also matches the file's own name in any folder.
