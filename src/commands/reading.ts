@@ -99,15 +99,16 @@ function lineRange(text: string): [number, number] {
 }
 
 // What `read` prints: the file at the round head (its old content at the round's start when the
-// round deleted it), numbered, for the lines asked; null text for a binary file.
+// round deleted it), numbered, for the lines asked; null text for a binary or an empty file.
 function shown(r: Review, file: string, want: [number, number] | null) {
   const changed = changedFiles(r.checkout, r.round.from, r.round.head).find((f) => f.file === file);
   const deleted = changed?.status === 'D';
   const sha = deleted ? r.round.from : r.round.head;
   const label = `${file}${deleted ? ' (deleted)' : ''} at ${sha.slice(0, 7)}`;
-  if (changed?.binary) return { label, range: null, text: null };
+  if (changed?.binary) return { label: `${label}: a binary file, nothing to print`, range: null, text: null };
   const content = git(r.checkout, ['cat-file', 'blob', `${sha}:${file}`]);
   const lines = content === '' ? [] : content.replace(/\n$/, '').split('\n');
+  if (lines.length === 0) return { label: `${label}: an empty file, nothing to print`, range: null, text: null };
   const [a, b] = want ?? [1, lines.length];
   if (a > lines.length) throw new Error(`--lines ${a}-${b}: ${file} has ${lines.length} lines`);
   const range: [number, number] = [a, Math.min(b, lines.length)];
@@ -130,7 +131,7 @@ const read: Command = {
     if (s.text !== null && s.range && s.text.length > budget()) {
       throw new Error(`${file} lines ${s.range[0]}-${s.range[1]} are larger than one call can show: read fewer with --lines a-b`);
     }
-    console.log(s.text === null ? `${s.label}: a binary file, nothing to print` : `${s.label}\n${s.text}`);
+    console.log(s.text === null ? s.label : `${s.label}\n${s.text}`);
     locked(env, seen, (r) => {
       const mark: ReadMark = { file, via: 'manual', at: env.now().toISOString() };
       // A whole read of all lines stays a whole read, as before; a part keeps its range.

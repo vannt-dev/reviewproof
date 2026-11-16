@@ -58,3 +58,12 @@ test('read of a binary file says so and counts it', async () => {
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /^logo\.png at [0-9a-f]{7}: a binary file, nothing to print\nread logo\.png\n$/);
 });
+
+test('read of a file emptied by the round prints that it is empty and counts it', async () => {
+  const s = setup();
+  s.push('src/a.ts', '');
+  await steps(s, ['start', 'o/r#1']);
+  const r = await s.rp('read', 'src/a.ts');
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /^src\/a\.ts at [0-9a-f]{7}: an empty file, nothing to print\nread src\/a\.ts\n$/);
+});
