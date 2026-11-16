@@ -156,6 +156,39 @@ Severity: `blocking`, `major`, `minor`. Source kind: `rule`, `design`, `legacy`,
 not be empty. `at` is checked at the round's head: the file must exist and the line must be inside it.
 Withdrawal evidence must contain a `file:line@sha` location or a URL.
 
+## Backtest
+
+`backtest` replays a review on a pull request that is already merged and compares its findings with
+what people commented there (GitHub only; it only reads). It tells how much of a real review the
+reviewer, an agent or a person, would have caught.
+
+```sh
+reviewproof backtest o/r#12                          # 1. the head to review, nothing of the comments
+reviewproof backtest o/r#12 --findings findings.json # 2. the comparison
+```
+
+1. Without `--findings` it names the commit to review: the head of the first human review (the
+   earliest review or line comment by someone other than the author and not a bot), else the merged
+   head. It prints the fetch and diff commands and no comment, so the replay stays blind. Review that
+   commit in a checkout of the repository and write the findings as for `add`.
+2. With `--findings` the findings are checked at that commit like `add` checks them, then compared
+   with the people's line comments (thread replies left out): a finding in the same file within
+   `--near` lines (default 3) catches a comment, a comment on a whole file is caught by any finding
+   in it. It prints caught (with the share), missed, extra (findings near no comment: new points or
+   noise, a person judges) and the review bodies, which have no line and are judged by hand.
+
+```text
+backtest o/r#12 at 1a2b3c4: the head of the first human review (alice, 2026-11-02); lines within 3
+caught 3 of 4 line comments (75%)
+missed:
+  - src/api/client.ts:91 alice: retries never stop on a 4xx (https://github.com/o/r/pull/12#discussion_r5)
+```
+
+Each miss is appended once (by its link) to a misses file for the next review to learn from:
+`<ledger home>/<host>/<owner>/<repo>/misses.md`, committed in the ledger, or the file given with
+`--misses FILE`. A comment made on a later commit than the replayed one may point a few lines off;
+`--near` widens the match.
+
 ## Parallel reviews
 
 The ledger is locked per pull request while a command changes it, so commands run at the same

@@ -32,6 +32,32 @@ export interface CiCheck {
   completedAt?: string;
 }
 
+/** A review or a line comment as the host reports it; who wrote it and on which commit. */
+interface Said {
+  by: string;
+  /** Written by an app or a bot account, not a person. */
+  bot: boolean;
+  body: string;
+  /** The commit the review or the comment was made on. */
+  commit: string;
+  at: string;
+  url: string;
+}
+
+/** A merged pull request's reviews and line comments, for backtest. */
+export interface ReviewHistory {
+  url: string;
+  title: string;
+  merged: boolean;
+  /** The pull request's author. */
+  author: string;
+  head: string;
+  base: string;
+  reviews: Said[];
+  /** Line comments; `line` is null on a comment about the whole file, `reply` on an answer in a thread. */
+  comments: (Said & { file: string; line: number | null; reply: boolean })[];
+}
+
 export interface Host {
   resolve(ref: PrRef): Promise<PrInfo>;
   comment(ref: PrRef, body: string): Promise<{ id: string; url: string }>;
@@ -42,6 +68,8 @@ export interface Host {
   inline(ref: PrRef, req: InlineRequest, posted: (p: InlinePosted[]) => void): Promise<void>;
   /** Every check run and commit status of a commit; absent on a host whose checks are not read. */
   checks?(ref: PrRef, sha: string): Promise<CiCheck[]>;
+  /** A pull request's reviews and line comments; absent on a host whose history is not read. */
+  history?(ref: PrRef): Promise<ReviewHistory>;
 }
 
 const FORMS = [

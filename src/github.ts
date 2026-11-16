@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { CiCheck, Host, InlineRequest } from './hosts.ts';
+import type { CiCheck, Host, InlineRequest, ReviewHistory } from './hosts.ts';
 import type { PrInfo } from './rounds.ts';
 import { runCapture } from './spawn.ts';
 import type { InlinePosted, PrRef } from './types.ts';
@@ -131,6 +131,41 @@ export class GitHub implements Host {
       ),
     );
     return [...runs, ...statuses];
+  }
+
+  // A list of the pull request, page by page until a page is not full.
+  private prPages<T>(ref: PrRef, list: string): T[] {
+    const all: T[] = [];
+    for (let page = 1; ; page++) {
+      const got = this.api(ref, `repos/${ref.project}/pulls/${ref.number}/${list}?per_page=${PAGE}&page=${page}`) as T[];
+      all.push(...got);
+      if (got.length < PAGE) return all;
+    }
+  }
+
+  // Reads only. A line comment keeps the line and commit it was written on (original_*): the
+  // line it points to later moves with every push.
+  async history(ref: PrRef): Promise<ReviewHistory> {
+    const pr = this.api(ref, `repos/${ref.project}/pulls/${ref.number}`) as {
+      html_url: string; title: string; merged_at: string | null; user: { login: string };
+      head: { sha: string }; base: { sha: string };
+    };
+    type User = { login: string; type: string } | null;
+    const who = (u: User) => ({ by: u?.login ?? 'ghost', bot: u?.type === 'Bot' || /\[bot\]$/.test(u?.login ?? '') });
+    const reviews = this.prPages<{ user: User; body: string | null; commit_id: string; submitted_at: string | null; html_url: string }>(ref, 'reviews')
+      .filter((r) => r.submitted_at)
+      .map((r) => ({ ...who(r.user), body: r.body ?? '', commit: r.commit_id, at: r.submitted_at as string, url: r.html_url }));
+    const comments = this.prPages<{
+      user: User; body: string; path: string; original_line: number | null; line: number | null;
+      original_commit_id: string; created_at: string; html_url: string; in_reply_to_id?: number;
+    }>(ref, 'comments').map((c) => ({
+      ...who(c.user), body: c.body, file: c.path, line: c.original_line ?? c.line ?? null,
+      commit: c.original_commit_id, at: c.created_at, url: c.html_url, reply: c.in_reply_to_id !== undefined,
+    }));
+    return {
+      url: pr.html_url, title: pr.title, merged: pr.merged_at !== null, author: pr.user.login,
+      head: pr.head.sha, base: pr.base.sha, reviews, comments,
+    };
   }
 
   async readComment(ref: PrRef, id: string): Promise<string> {
