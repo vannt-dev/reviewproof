@@ -55,7 +55,10 @@ reviewproof post --approved-by alice      # the person runs this, never the agen
 ```
 
 The draft holds the verdict, a table of the round's findings with each finding's body below it,
-the carried findings with their status, the gates and the read coverage.
+the carried findings with their status, the gates and the read coverage. Skipped files are
+grouped there: those a `skip` glob left out as ``18 files matching `work/**/evidence/**` (config)``,
+those skipped for one reason as `4 files (generated): a.ts, b.ts, c.ts and 1 more`; a group of one
+file keeps its name.
 
 A gate's evidence is for the round's head. Each attempt records the commit the checkout was at and
 whether tracked files had uncommitted changes; an attempt at another commit, or with changes, does

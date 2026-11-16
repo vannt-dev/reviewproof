@@ -5,7 +5,8 @@ export interface Coverage {
   read: string[];
   partial: string[];
   unread: string[];
-  skipped: { file: string; reason: string }[];
+  /** `pattern` is the config glob that left the file out (reason `config`). */
+  skipped: { file: string; reason: string; pattern?: string }[];
 }
 
 // Local matcher: path.matchesGlob is still experimental on our Node floor.
@@ -66,10 +67,10 @@ export function coverage(
   const out: Coverage = { read: [], partial: [], unread: [], skipped: [] };
   for (const f of changed) {
     const explicit = skips.find((s) => s.file === f.file);
+    const pattern = explicit ? undefined : skipGlobs.find((g) => globMatches(g, f.file));
     if (explicit) out.skipped.push({ file: f.file, reason: explicit.reason });
-    else if (skipGlobs.some((g) => globMatches(g, f.file))) {
-      out.skipped.push({ file: f.file, reason: 'config' });
-    } else out[stateOf(f, reads)].push(f.file);
+    else if (pattern !== undefined) out.skipped.push({ file: f.file, reason: 'config', pattern });
+    else out[stateOf(f, reads)].push(f.file);
   }
   return out;
 }
