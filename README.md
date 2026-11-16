@@ -127,7 +127,8 @@ reviewproof mark F1-2 reopened --at src/api/client.ts:91
 reviewproof mark F1-3 withdrawn --evidence "src/api/client.ts:40@3f9c2ab handles it"
 ```
 
-Other commands: `read <file> [--lines a-b]` counts a file read elsewhere, `skip <file> --reason R`
+Other commands: `read <file> [--lines a-b]` prints a changed file (or those lines) at the round
+head, numbered, and counts it read, `skip <file> --reason R`
 leaves a changed file out of coverage, `start --force` starts a round at an unchanged head,
 `start --full` diffs from the merge-base, `export --sarif [--out FILE]` writes the latest round as
 SARIF 2.1.0 (to FILE, or to stdout without `--out`) for code-scanning tools.
@@ -137,7 +138,10 @@ only the printed ones count as read. Files that would fit in a later call are li
 `not shown (too long for one call): <files> — run reviewproof diff <files>`. A file whose diff alone
 is larger than the budget is never printed or counted read, not even when it is the only file
 asked for; stderr says `<file>: its diff is larger than one call can show; open it with Read in
-parts (each part is recorded) or record what you read with reviewproof read <file> --lines a-b`.
+parts (each part is recorded) or print it in parts with reviewproof read <file> --lines a-b`.
+`read` counts only what it printed: a file is never recorded as read without being shown. It
+holds to the same budget (a part larger than one call is refused: read fewer lines), prints a
+deleted file's old content, and says so for a binary file.
 Gate names start with a letter or digit and then hold only letters, digits, `.`, `_` and `-` (for example `test-unit`, not
 `test:unit` or `../x`).
 
@@ -273,9 +277,8 @@ before the gates and reads are done, measured read coverage, and the posted note
   1) for `limit` lines (default 2000, the Read tool's own default). A Read cut short by the token limit
   counts only when Claude Code marks it `PARTIAL view`; reads through `cat` in a shell or Grep are not
   counted.
-- Other agents use `reviewproof diff` and `reviewproof read`. These are declarations, not
-  measurements: reviewproof records that the file was shown or that you said you read it, not that
-  anyone understood it.
+- Other agents use `reviewproof diff` and `reviewproof read`. Both print what they count, so a file
+  counted read was shown to the caller; reviewproof cannot tell that anyone understood it.
 - On Windows a `.cmd` tool (such as `npm`) is retried through `cmd.exe`, which expands `%VAR%` in the
   arguments.
 - The person posts by running `reviewproof post --approved-by <name>` in their own terminal. The

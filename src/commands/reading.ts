@@ -33,15 +33,17 @@ function perFile(text: string): FileDiff[] {
 // What an agent's tool shows of one call's output is cut short, and a file cut short was not read.
 // Files print in order while they fit. One that would fit a later call waits for it; one larger than
 // the whole budget is never printed (not even alone), so it can only be read in parts, which record themselves.
+const budget = (): number => Number(process.env.REVIEWPROOF_DIFF_BUDGET) || 25000;
+
 function fit(files: FileDiff[]): { shown: FileDiff[]; later: string[]; tooLarge: FileDiff[] } {
-  const budget = Number(process.env.REVIEWPROOF_DIFF_BUDGET) || 25000;
+  const limit = budget();
   const shown: FileDiff[] = [];
   const later: string[] = [];
   const tooLarge: FileDiff[] = [];
   let used = 0;
   for (const f of files) {
-    if (f.text.length > budget) tooLarge.push(f);
-    else if (used + f.text.length > budget) later.push(f.file);
+    if (f.text.length > limit) tooLarge.push(f);
+    else if (used + f.text.length > limit) later.push(f.file);
     else {
       shown.push(f);
       used += f.text.length;
@@ -79,10 +81,10 @@ const diff: Command = {
     for (const { file, deleted } of tooLarge) {
       console.error(
         deleted
-          ? `${file}: deleted, and its diff is larger than one call can show; read its old content ` +
-              `(git show ${seen.round.from}:${file}) and record it with reviewproof read ${file}`
+          ? `${file}: deleted, and its diff is larger than one call can show; print its old content ` +
+              `with reviewproof read ${file} (--lines a-b for a part)`
           : `${file}: its diff is larger than one call can show; open it with Read in parts ` +
-              `(each part is recorded) or record what you read with reviewproof read ${file} --lines a-b`,
+              `(each part is recorded) or print it in parts with reviewproof read ${file} --lines a-b`,
       );
     }
     return 0;
@@ -96,21 +98,48 @@ function lineRange(text: string): [number, number] {
   return range;
 }
 
+// What `read` prints: the file at the round head (its old content at the round's start when the
+// round deleted it), numbered, for the lines asked; null text for a binary or an empty file.
+function shown(r: Review, file: string, want: [number, number] | null) {
+  const changed = changedFiles(r.checkout, r.round.from, r.round.head).find((f) => f.file === file);
+  const deleted = changed?.status === 'D';
+  const sha = deleted ? r.round.from : r.round.head;
+  const label = `${file}${deleted ? ' (deleted)' : ''} at ${sha.slice(0, 7)}`;
+  if (changed?.binary) return { label: `${label}: a binary file, nothing to print`, range: null, text: null };
+  const content = git(r.checkout, ['cat-file', 'blob', `${sha}:${file}`]);
+  const lines = content === '' ? [] : content.replace(/\n$/, '').split('\n');
+  if (lines.length === 0) return { label: `${label}: an empty file, nothing to print`, range: null, text: null };
+  const [a, b] = want ?? [1, lines.length];
+  if (a > lines.length) throw new Error(`--lines ${a}-${b}: ${file} has ${lines.length} lines`);
+  const range: [number, number] = [a, Math.min(b, lines.length)];
+  const body = lines.slice(range[0] - 1, range[1]).map((l, i) => `${range[0] + i}\t${l}`).join('\n');
+  return { label: `${label}, lines ${range[0]}-${range[1]} of ${lines.length}`, range, text: body };
+}
+
+// Counted as read only once printed here: a file is never recorded as read without being shown.
 const read: Command = {
   args: '<file> [--lines a-b]',
-  about: 'count a changed file, or some of its lines, read elsewhere',
+  about: 'print a changed file (or some of its lines) at the round head and count it read',
   options: { lines: { type: 'string' } },
   async run(env, a) {
     const file = repoPath(take(a, '<file>')[0]);
     const lines = str(a, 'lines');
-    locked(env, openReview(env), (r) => {
-      changedOnly(assertOpen(r), [file]);
+    const want = lines === undefined ? null : lineRange(lines);
+    const seen = assertOpen(openReview(env));
+    changedOnly(seen, [file]);
+    const s = shown(seen, file, want);
+    if (s.text !== null && s.range && s.text.length > budget()) {
+      throw new Error(`${file} lines ${s.range[0]}-${s.range[1]} are larger than one call can show: read fewer with --lines a-b`);
+    }
+    console.log(s.text === null ? s.label : `${s.label}\n${s.text}`);
+    locked(env, seen, (r) => {
       const mark: ReadMark = { file, via: 'manual', at: env.now().toISOString() };
-      if (lines !== undefined) mark.range = lineRange(lines);
-      r.round.reads.push(mark);
+      // A whole read of all lines stays a whole read, as before; a part keeps its range.
+      if (want !== null && s.range) mark.range = s.range;
+      assertOpen(r).round.reads.push(mark);
       env.store.save(r.ledger);
     });
-    console.log(`read ${file}${lines === undefined ? '' : ` lines ${lines}`}`);
+    console.log(`read ${file}${want !== null && s.range ? ` lines ${s.range[0]}-${s.range[1]}` : ''}`);
     return 0;
   },
 };
