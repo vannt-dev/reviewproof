@@ -52,6 +52,50 @@ test('GitHub resolve maps the pull request', async () => {
   assert.deepEqual(calls[0], ['api', 'repos/o/r/pulls/12']);
 });
 
+test('GitHub history reads the pull request, its reviews and its line comments (only reads)', async () => {
+  const calls: string[][] = [];
+  const host = new GitHub((argv) => {
+    calls.push(argv);
+    const endpoint = argv[1] ?? '';
+    if (endpoint === 'repos/o/r/pulls/12') {
+      return JSON.stringify({
+        html_url: 'U', title: 'T', merged_at: '2026-01-05T00:00:00Z', user: { login: 'me' },
+        head: { sha: 'h2' }, base: { sha: 'b1' },
+      });
+    }
+    if (endpoint.startsWith('repos/o/r/pulls/12/reviews')) {
+      return JSON.stringify([
+        { user: { login: 'alice', type: 'User' }, body: 'ok', commit_id: 'h1', submitted_at: '2026-01-02T00:00:00Z', html_url: 'R1' },
+        { user: { login: 'pending', type: 'User' }, body: '', commit_id: 'h1', submitted_at: null, html_url: 'R2' },
+        { user: { login: 'robot', type: 'User' }, body: 'not a bot', commit_id: 'h1', submitted_at: '2026-01-02T00:00:00Z', html_url: 'R3' },
+      ]);
+    }
+    return JSON.stringify([
+      {
+        user: { login: 'helper[bot]', type: 'Bot' }, body: 'b', path: 'a.ts', original_line: 4, line: 9,
+        original_commit_id: 'h1', created_at: '2026-01-02T00:00:00Z', html_url: 'C1',
+      },
+      {
+        user: null, body: 'c', path: 'a.ts', original_line: null, line: null,
+        original_commit_id: 'h1', created_at: '2026-01-03T00:00:00Z', html_url: 'C2', in_reply_to_id: 7,
+      },
+    ]);
+  });
+  const h = await host.history(gh);
+  assert.deepEqual([h.merged, h.author, h.head, h.base], [true, 'me', 'h2', 'b1']);
+  assert.deepEqual(h.reviews.map((r) => [r.by, r.bot, r.commit]), [['alice', false, 'h1'], ['robot', false, 'h1']]);
+  assert.deepEqual(
+    h.comments.map((c) => [c.by, c.bot, c.file, c.line, c.commit, c.reply]),
+    [['helper[bot]', true, 'a.ts', 4, 'h1', false], ['ghost', false, 'a.ts', null, 'h1', true]],
+  );
+  assert.ok(calls.every((c) => !c.includes('-X')));
+  assert.deepEqual(calls.map((c) => c[1]), [
+    'repos/o/r/pulls/12',
+    'repos/o/r/pulls/12/reviews?per_page=100&page=1',
+    'repos/o/r/pulls/12/comments?per_page=100&page=1',
+  ]);
+});
+
 test('GitHub adds --hostname for Enterprise', async () => {
   const calls: string[][] = [];
   const host = new GitHub((argv) => {

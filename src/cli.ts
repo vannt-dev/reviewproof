@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { backtestCommands } from './commands/backtest.ts';
 import { checks } from './commands/checks.ts';
 import { exportCommands } from './commands/export.ts';
 import { envFrom, type Command, type Deps } from './commands/context.ts';
@@ -24,7 +25,7 @@ const hook: Command = {
   },
 };
 
-const COMMANDS: Record<string, Command> = { ...review, ...statusCommands, ...checks, ...finish, ...exportCommands, hook };
+const COMMANDS: Record<string, Command> = { ...review, ...statusCommands, ...checks, ...finish, ...exportCommands, ...backtestCommands, hook };
 
 function help(): string {
   const rows = Object.entries(COMMANDS).map(([name, c]) => [`${name} ${c.args}`.trim(), c.about] as const);

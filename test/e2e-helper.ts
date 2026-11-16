@@ -5,7 +5,7 @@ import { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, execFileSync } from 'node:child_process';
 import { run } from '../src/cli.ts';
-import type { CiCheck, Host, InlineComment, InlineRequest } from '../src/hosts.ts';
+import type { CiCheck, Host, InlineComment, InlineRequest, ReviewHistory } from '../src/hosts.ts';
 import type { PrInfo } from '../src/rounds.ts';
 import type { InlinePosted, PrRef } from '../src/types.ts';
 
@@ -68,6 +68,14 @@ export class FakeHost implements Host {
   async checks(_ref: PrRef, sha: string): Promise<CiCheck[]> {
     this.checksAsked.push(sha);
     return this.ci;
+  }
+
+  // The pull request's reviews and line comments, for backtest.
+  hist: ReviewHistory | null = null;
+
+  async history(): Promise<ReviewHistory> {
+    if (!this.hist) throw new Error('no history set');
+    return this.hist;
   }
 
   // Line comments posted, in order, with the note each one named.
