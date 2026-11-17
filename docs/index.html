@@ -586,9 +586,17 @@
         </p>
         <pre><span class="dim">$</span> reviewproof post --approved-by &lt;name&gt;</pre>
         <p class="note" data-i18n="round.more">
-          Other commands: <code>read &lt;file&gt; [--lines a-b]</code> counts a file read elsewhere, <code>skip &lt;file&gt; --reason R</code>
-          leaves a changed file out of coverage, <code>export --sarif [--out FILE]</code> writes the latest round as SARIF 2.1.0 for
-          code-scanning tools.
+          Other commands: <code>read &lt;file&gt; [--lines a-b]</code> prints a changed file (or those lines) at the round head, numbered,
+          and counts it read, <code>skip &lt;file&gt; --reason R</code> leaves a changed file out of coverage,
+          <code>export --sarif [--out FILE]</code> writes the latest round as SARIF 2.1.0 for code-scanning tools.
+        </p>
+        <p class="note" data-i18n="round.backtest">
+          <code>backtest o/r#12</code> replays a review on a pull request that is already merged and compares its findings with what
+          people commented there (GitHub only; it only reads), so you see how much of a real review the reviewer would have caught.
+        </p>
+        <p class="note" data-i18n="round.evidence">
+          Stale evidence: with <code>evidence</code> in <code>.reviewproof.json</code>, a screenshot or test report the pull request
+          changed before the code it shows changed again is stale. It blocks <code>verdict pass</code> and the draft lists it.
         </p>
       </section>
 
@@ -729,7 +737,8 @@
         <ul>
           <li data-i18n="lim.1">The Read hook works in Claude Code only; reads through <code>cat</code> in a shell or Grep do not count.</li>
           <li data-i18n="lim.2">
-            Other agents use <code>reviewproof diff</code> and <code>reviewproof read</code>: these are declarations, not measurements.
+            Other agents use <code>reviewproof diff</code> and <code>reviewproof read</code>. Both print what they count, so a file counted
+            read was shown to the caller; reviewproof cannot tell that anyone understood it.
           </li>
           <li data-i18n="lim.3">
             The guard stops this tool's <code>post</code> only, not an agent that calls the GitHub or GitLab API itself (<code>gh api</code>,
@@ -794,7 +803,11 @@
           'round.post':
             'Agent dừng ở bản nháp. Bạn đọc nó rồi đăng từ terminal của mình, không phải từ agent. <code>post</code> gửi bản nháp thành comment, đọc lại, so với bản nháp và lưu id cùng URL của comment.',
           'round.more':
-            'Lệnh khác: <code>read &lt;file&gt; [--lines a-b]</code> tính một file đã đọc ở chỗ khác, <code>skip &lt;file&gt; --reason R</code> bỏ một file thay đổi ra khỏi phần phải đọc, <code>export --sarif [--out FILE]</code> xuất vòng mới nhất ra SARIF 2.1.0 cho các công cụ code scanning.',
+            'Lệnh khác: <code>read &lt;file&gt; [--lines a-b]</code> in một file thay đổi (hoặc các dòng đó) tại head của vòng, có đánh số dòng, và tính file đó đã đọc, <code>skip &lt;file&gt; --reason R</code> bỏ một file thay đổi ra khỏi phần phải đọc, <code>export --sarif [--out FILE]</code> xuất vòng mới nhất ra SARIF 2.1.0 cho các công cụ code scanning.',
+          'round.backtest':
+            '<code>backtest o/r#12</code> chạy lại một lượt review trên pull request đã merge và so các finding với những gì người review đã comment ở đó (chỉ GitHub; chỉ đọc), để biết người review (agent hay người) sẽ bắt được bao nhiêu phần của một lượt review thật.',
+          'round.evidence':
+            'Bằng chứng cũ: khi có <code>evidence</code> trong <code>.reviewproof.json</code>, ảnh chụp hay báo cáo test mà pull request đã đổi trước khi phần code nó thể hiện lại đổi tiếp thì bị coi là cũ. Nó chặn <code>verdict pass</code> và bản nháp liệt kê nó.',
           'par.h2': 'Review song song',
           'par.sub':
             'Sổ của mỗi pull request được khóa khi một lệnh đang ghi vào, nên chạy nhiều lệnh cùng lúc vẫn an toàn: không lệnh nào làm mất thay đổi của lệnh khác, và log của gate không bao giờ bị ghi đè.',
@@ -829,7 +842,8 @@
             'Thêm hook cho Read và shell cùng skill <code>review-round</code>; skill này chạy một vòng review rồi dừng ở bản nháp.',
           'gs.lim.h': 'Giới hạn',
           'lim.1': 'Hook Read chỉ chạy trong Claude Code; đọc bằng <code>cat</code> trong shell hay bằng Grep không được tính.',
-          'lim.2': 'Agent khác dùng <code>reviewproof diff</code> và <code>reviewproof read</code>: đó là khai báo, không phải đo.',
+          'lim.2':
+            'Agent khác dùng <code>reviewproof diff</code> và <code>reviewproof read</code>. Cả hai in ra đúng những gì chúng tính, nên một file được tính là đã đọc thì đã được hiển thị cho bên gọi; reviewproof không biết được có ai hiểu nó hay không.',
           'lim.3':
             'Guard chỉ chặn lệnh <code>post</code> của công cụ này, không chặn agent tự gọi GitHub hay GitLab API (<code>gh api</code>, <code>curl</code>, ...).',
           'lim.4':
