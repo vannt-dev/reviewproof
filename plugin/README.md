@@ -13,3 +13,14 @@ The full plugin from the repository's own marketplace adds a Read hook that coun
 reads too, and a guard that keeps the agent from running `reviewproof post`.
 
 The skill is a copy of `skills/review-round/SKILL.md` at the repository root, kept equal by a test.
+
+## Data
+
+The skill itself sends nothing. The reviewproof CLI it runs talks to the pull request's host:
+
+- It reads the pull request (title, description, comments and their authors, CI checks, the diff)
+  from GitHub through `gh`, or from GitLab through its API with the person's token.
+- It keeps the review ledger, logs and drafts on the person's machine, in reviewproof's home
+  folder. Nothing goes to vannt-dev or any other service.
+- Posting the review note back to the pull request is done by the person, outside Claude
+  (`reviewproof post --approved-by <name>`).
