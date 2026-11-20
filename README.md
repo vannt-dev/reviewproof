@@ -37,6 +37,15 @@ As a Claude Code plugin (adds the Read and shell hooks and the `review-round` sk
 /plugin install reviewproof@reviewproof
 ```
 
+What the plugin's two hooks do, in every Claude Code session once it is installed:
+
+| Hook | Event | Does |
+| --- | --- | --- |
+| Read | PostToolUse on Read | Looks up the file in reviewproof's list of active reviews (in its home folder). Only when the file is inside the checkout of an active review does it add the read lines to that review's read log; any other Read is left alone and nothing is written. |
+| Shell | PreToolUse on Bash/PowerShell | Denies a command that runs `reviewproof post` (only the person posts); every other command passes untouched. |
+
+Neither hook makes a network call, changes a tool's input or adds context to the session.
+
 ## One round
 
 Run inside a checkout that is at the head of the pull request.
