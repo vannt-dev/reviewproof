@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/vannt-dev/reviewproof/compare/v0.7.0...v0.8.0) (2026-11-20)
+
+
+### Features
+
+* plugin/ folder with the review-round skill for the Claude plugin directory ([#34](https://github.com/vannt-dev/reviewproof/issues/34)) ([9fc625d](https://github.com/vannt-dev/reviewproof/commit/9fc625d659262824b7f06cb11542fb96cf77f5cb))
+
 ## [0.7.0](https://github.com/vannt-dev/reviewproof/compare/v0.6.0...v0.7.0) (2026-11-16)
 
 
