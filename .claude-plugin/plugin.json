@@ -1,6 +1,6 @@
 {
   "name": "reviewproof",
-  "description": "A per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person",
+  "description": "A per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person. Hooks: Read lines are logged only inside an active review's checkout; a shell `reviewproof post` is denied.",
   "version": "0.7.0",
   "author": {
     "name": "vannt-dev"
