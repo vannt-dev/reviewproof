@@ -1,0 +1,14 @@
+{
+  "name": "reviewproof",
+  "description": "The review-round skill for reviewproof, the per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person. Skill only: needs the reviewproof CLI, installed separately.",
+  "version": "0.7.0",
+  "author": {
+    "name": "vannt-dev"
+  },
+  "homepage": "https://vannt-dev.github.io/reviewproof/",
+  "repository": "https://github.com/vannt-dev/reviewproof",
+  "documentationUrl": "https://github.com/vannt-dev/reviewproof#readme",
+  "supportUrl": "https://github.com/vannt-dev/reviewproof/issues",
+  "license": "MIT",
+  "keywords": ["code-review", "pull-request", "merge-request", "ledger", "review"]
+}

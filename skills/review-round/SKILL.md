@@ -16,8 +16,9 @@ read the message, fix what it names, and run the command again. Do not work arou
 2. Read the PR context: title, description, linked issue, earlier comments. Note what the
    author says the change is for.
 3. `reviewproof diff` prints the round diff and counts every changed file as read. For a very
-   large diff name files: `reviewproof diff <file>...`. Reads with the Read tool count too, but
-   only whole, not cut short (a result marked `PARTIAL view` counts for nothing). Reading with
+   large diff name files: `reviewproof diff <file>...`. Reads with the Read tool count too when the
+   reviewproof hooks are installed (the plugin from this repository's marketplace), but only whole,
+   not cut short (a result marked `PARTIAL view` counts for nothing). Reading with
    `cat` or Grep does not count. `reviewproof read <file> [--lines a-b]` prints a file (or a part)
    at the round head and counts what it printed. A file you will not review: `reviewproof skip <file> --reason "..."`.
 4. Gates: `reviewproof gate run <name> -- <command...>` for each required gate (tests, lint,
