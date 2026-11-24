@@ -1,7 +1,7 @@
 {
   "name": "reviewproof",
   "description": "The review-round skill for reviewproof, the per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person. Skill only: needs the reviewproof CLI, installed separately.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "author": {
     "name": "vannt-dev"
   },
