@@ -46,6 +46,21 @@ What the plugin's two hooks do, in every Claude Code session once it is installe
 
 Neither hook makes a network call, changes a tool's input or adds context to the session.
 
+In the [Pi coding agent](https://github.com/earendil-works/pi), reviewproof's extension records
+what Pi's `read` tool shows, the way the Read hook does. Install it as a Pi package (it uses the
+`reviewproof` npm package, which carries the extension):
+
+```sh
+pi install npm:reviewproof
+```
+
+Each read inside the checkout of an active review adds the lines Pi showed to that review's read
+log. A read starts at `offset` (default 1) and covers `limit` lines, but at most what Pi showed:
+2000 lines or 50 KB, whichever it hit first. A failed read, a read whose first line alone is over
+50 KB, and a read made by another tool (a codemode script) count for nothing. Pi only gets the
+read log: the extension has no shell guard, so it does not stop Pi from running
+`reviewproof post`.
+
 ## One round
 
 Run inside a checkout that is at the head of the pull request.
@@ -282,10 +297,11 @@ before the gates and reads are done, measured read coverage, and the posted note
 
 ## Limits
 
-- The Read hook works in Claude Code only. A Read always counts as a line range: from `offset` (default
+- The Read hook works in Claude Code, and the extension in Pi. A Read always counts as a line range: from `offset` (default
   1) for `limit` lines (default 2000, the Read tool's own default). A Read cut short by the token limit
   counts only when Claude Code marks it `PARTIAL view`; reads through `cat` in a shell or Grep are not
-  counted.
+  counted. Pi's reads count the lines Pi showed. A helper agent that runs as its own Pi process
+  (such as Pi's subagent example) records its reads as the main session's.
 - Other agents use `reviewproof diff` and `reviewproof read`. Both print what they count, so a file
   counted read was shown to the caller; reviewproof cannot tell that anyone understood it.
 - On Windows a `.cmd` tool (such as `npm`) is retried through `cmd.exe`, which expands `%VAR%` in the
