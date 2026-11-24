@@ -735,7 +735,7 @@
 
         <h3 data-i18n="gs.lim.h">Limits</h3>
         <ul>
-          <li data-i18n="lim.1">The Read hook works in Claude Code only; reads through <code>cat</code> in a shell or Grep do not count.</li>
+          <li data-i18n="lim.1">Reads count through the Read hook in Claude Code, the extension in Pi, and file-printing shell commands (<code>cat</code>, <code>sed -n</code>, <code>head</code>, <code>Get-Content</code>, ...) in Claude Code and Codex, only for the lines the output shows. Grep does not count.</li>
           <li data-i18n="lim.2">
             Other agents use <code>reviewproof diff</code> and <code>reviewproof read</code>. Both print what they count, so a file counted
             read was shown to the caller; reviewproof cannot tell that anyone understood it.
@@ -841,7 +841,7 @@
           'gs.plugin':
             'Thêm hook cho Read và shell cùng skill <code>review-round</code>; skill này chạy một vòng review rồi dừng ở bản nháp.',
           'gs.lim.h': 'Giới hạn',
-          'lim.1': 'Hook Read chỉ chạy trong Claude Code; đọc bằng <code>cat</code> trong shell hay bằng Grep không được tính.',
+          'lim.1': 'Lượt đọc được tính qua hook Read trong Claude Code, extension trong Pi, và lệnh shell in file (<code>cat</code>, <code>sed -n</code>, <code>head</code>, <code>Get-Content</code>, ...) trong Claude Code và Codex, chỉ với những dòng output thật sự hiện ra. Grep không được tính.',
           'lim.2':
             'Agent khác dùng <code>reviewproof diff</code> và <code>reviewproof read</code>. Cả hai in ra đúng những gì chúng tính, nên một file được tính là đã đọc thì đã được hiển thị cho bên gọi; reviewproof không biết được có ai hiểu nó hay không.',
           'lim.3':

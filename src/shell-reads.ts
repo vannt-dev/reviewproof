@@ -489,7 +489,8 @@ function filter(stage: string[], dialect: Dialect): { picks: Pick[]; numbered?: 
       else if (p === '-last') last = n;
       else return null;
     }
-    if (first !== null && last !== null) return null;
+    // With -Last, -Skip counts from the end: not followed.
+    if (last !== null && (first !== null || skip > 0)) return null;
     const picks: Pick[] = [];
     if (skip > 0) picks.push({ kind: 'from', n: skip + 1 });
     if (first !== null) picks.push({ kind: 'head', n: first });

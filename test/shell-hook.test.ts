@@ -106,12 +106,14 @@ test('relative to the hook cwd, after a cd, or absolute; files outside a review 
   handleHook(claude('cd src && head -n 2 b.ts', 'one\ntwo', s.checkout), s.home);
   handleHook(claude(`tail -n 1 "${path.join(s.checkout, 'src', 'b.ts')}"`, 'two', os.tmpdir()), s.home);
   handleHook(claude('head -n 1 b.ts', 'one', path.join(s.checkout, 'src')), s.home);
+  handleHook(claude('cd src && head -n 1 b.ts', 'one', path.join(s.checkout, 'src')), s.home);
   const outside = path.join(tmpDir(), 'x.ts');
   fs.writeFileSync(outside, 'one\n');
   handleHook(claude(`cat "${outside}"`, 'one', s.checkout), s.home);
   assert.deepEqual(reads(s), [
     ['src/b.ts', [1, 2], 'hook', undefined],
     ['src/b.ts', [2, 2], 'hook', undefined],
+    ['src/b.ts', [1, 1], 'hook', undefined],
     ['src/b.ts', [1, 1], 'hook', undefined],
   ]);
 });

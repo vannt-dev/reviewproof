@@ -130,6 +130,7 @@ test('PowerShell: Get-Content and its aliases, Select-Object, quoting', () => {
   const none = [
     'Get-Content src/a.ts | Select-String foo',
     'Get-Content src/a.ts | Measure-Object',
+    'Get-Content src/a.ts | Select-Object -Skip 2 -Last 3',
     'Get-Content $f',
     'Get-Content "$env:TEMP/a.ts"',
     'Get-Content a.ts, b.ts',

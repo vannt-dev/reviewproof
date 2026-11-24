@@ -168,7 +168,9 @@ function recordShellReads(e: HookEvent, home: string): void {
   const at = new Date().toISOString();
   let from = 0;
   for (const d of displays) {
-    const file = displayPath(d, cwd);
+    // The cwd Claude Code passes can already be the folder a `cd` in the command moved to.
+    let file = displayPath(d, cwd);
+    if (d.cd.length > 0 && (file === null || !fs.existsSync(file))) file = displayPath({ ...d, cd: [] }, cwd);
     if (file === null) continue;
     const active = activeFor(home, file);
     if (!active) continue;
