@@ -33,7 +33,10 @@ export interface PiToolResult {
   toolName?: unknown;
   input?: { path?: unknown; offset?: unknown; limit?: unknown };
   isError?: unknown;
-  details?: { truncation?: { truncated?: unknown; outputLines?: unknown; firstLineExceedsLimit?: unknown } };
+  details?: {
+    truncation?: { truncated?: unknown; outputLines?: unknown; firstLineExceedsLimit?: unknown };
+    imageUnsupportedByModel?: unknown;
+  };
   parentToolCallId?: unknown;
   image?: unknown;
   cwd?: unknown;
@@ -103,6 +106,8 @@ function recordPiRead(e: PiToolResult, home: string): void {
   // A failed read showed nothing; a read made by another tool (a codemode script) was not shown
   // to the model as it is.
   if (e.toolName !== 'read' || e.isError === true || e.parentToolCallId !== undefined) return;
+  // An image the model cannot take in reached it as a placeholder only.
+  if (e.image === true && e.details?.imageUnsupportedByModel !== undefined) return;
   const input = e.input;
   if (typeof input?.path !== 'string' || !input.path || typeof e.cwd !== 'string') return;
   const file = piPath(input.path, e.cwd);

@@ -57,7 +57,8 @@ pi install npm:reviewproof
 Each read inside the checkout of an active review adds the lines Pi showed to that review's read
 log. A read starts at `offset` (default 1) and covers `limit` lines, but at most what Pi showed:
 2000 lines or 50 KB, whichever it hit first. A failed read, a read whose first line alone is over
-50 KB, and a read made by another tool (a codemode script) count for nothing. Pi only gets the
+50 KB, an image the model cannot take in, and a read made by another tool (a codemode script)
+count for nothing. Pi only gets the
 read log: the extension has no shell guard, so it does not stop Pi from running
 `reviewproof post`.
 

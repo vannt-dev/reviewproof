@@ -81,6 +81,8 @@ test('failed, nested, other-tool and outside reads record nothing; an image has 
   handleHook(piRead(s.checkout, { path: 'src/A.ts' }, { toolName: 'grep' }), s.home);
   handleHook(piRead(tmpDir(), { path: 'src/A.ts' }), s.home);
   handleHook(piRead(s.checkout, { path: 42 }), s.home);
+  // an image the model has no input for: it got a placeholder, not the picture
+  handleHook(piRead(s.checkout, { path: 'src/A.ts' }, { image: true, details: { imageUnsupportedByModel: 'm' } }), s.home);
   assert.equal(reads(s).length, 0);
   handleHook(piRead(s.checkout, { path: 'src/A.ts' }, { image: true }), s.home);
   const r = reads(s);
