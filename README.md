@@ -37,14 +37,15 @@ As a Claude Code plugin (adds the Read and shell hooks and the `review-round` sk
 /plugin install reviewproof@reviewproof
 ```
 
-What the plugin's two hooks do, in every Claude Code session once it is installed:
+What the plugin's hooks do, in every Claude Code session once it is installed:
 
 | Hook | Event | Does |
 | --- | --- | --- |
 | Read | PostToolUse on Read | Looks up the file in reviewproof's list of active reviews (in its home folder). Only when the file is inside the checkout of an active review does it add the read lines to that review's read log; any other Read is left alone and nothing is written. |
-| Shell | PreToolUse on Bash/PowerShell | Denies a command that runs `reviewproof post` (only the person posts); every other command passes untouched. |
+| Shell reads | PostToolUse on Bash/PowerShell | When the command prints a file (see [Shell reads](#shell-reads)) inside the checkout of an active review, adds the lines its output shows to that review's read log. Any other command is left alone and nothing is written. |
+| Shell guard | PreToolUse on Bash/PowerShell | Denies a command that runs `reviewproof post` (only the person posts); every other command passes untouched. |
 
-Neither hook makes a network call, changes a tool's input or adds context to the session.
+No hook makes a network call, changes a tool's input or adds context to the session.
 
 In the [Pi coding agent](https://github.com/earendil-works/pi), reviewproof's extension records
 what Pi's `read` tool shows, the way the Read hook does. Install it as a Pi package (it uses the
@@ -61,6 +62,47 @@ log. A read starts at `offset` (default 1) and covers `limit` lines, but at most
 count for nothing. Pi only gets the
 read log: the extension has no shell guard, so it does not stop Pi from running
 `reviewproof post`.
+
+### Shell reads
+
+A command that prints a file counts as a read of the lines it printed, in Claude Code (Bash and
+PowerShell tools) and in Codex (see below). These are followed:
+
+- `cat`, `cat -n`, `nl`, `less`, `more`, `bat` (plain, `-r a:b`), `git show <rev>:<path>`: the
+  whole file (or the `bat -r` lines). `cat a b` prints both files.
+- `head [-n N]`, `tail [-n N | -n +K]`, `sed -n 'a,bp'` (also `5p`, `a,$p`, several `;`-separated,
+  `Nq`): those lines.
+- PowerShell: `Get-Content` (and `gc`, `cat`, `type`) with `-TotalCount`/`-Head`/`-First` or
+  `-Tail`/`-Last`, and a pipe into `Select-Object -Skip/-First/-Last`.
+- One file piped into `head`, `tail`, `sed -n`, `cat -n` or `nl` (`nl -ba f | sed -n '20,60p'`),
+  a leading `cd dir &&`, and `2>/dev/null` or `2>&1`.
+
+A read counts only when the output is the file's own lines: reviewproof reads the file and keeps
+the longest run of output lines equal to the lines the command prints, so a failed command, a file
+changed since, or an output cut short counts only the whole lines that were shown. Anything else
+counts for nothing: a pipe into `grep`, `wc`, `sort` or any other filter, output sent to a file,
+globs, variables and command substitution (`cat $f`, `cat *.ts`), and a command the model saw only
+a preview of (Claude Code saves an output over its limit to a file and shows the first 2 KB:
+nothing is counted, read the file in parts instead). A command another hook rewrote (into a tool
+of its own) is seen as it ran, so it counts only if the new command is one of the above.
+
+In [Codex](https://developers.openai.com/codex/hooks) the same command records the reads (and
+guards `post`). Add it to `~/.codex/hooks.json` (or `$CODEX_HOME/hooks.json`; for one project,
+`.codex/hooks.json`), next to any hooks already there, then trust it with `/hooks` in Codex
+(Codex runs a new or changed hook only after that):
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "reviewproof hook" }] }],
+    "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "reviewproof hook" }] }]
+  }
+}
+```
+
+Codex passes the output as the model got it, cut in the middle when it is long: the lines before
+the cut count. Codex does not say which shell ran the command (PowerShell on Windows, sh
+elsewhere, by default), so both forms are tried. A Codex subagent's reads carry its agent id.
 
 ## One round
 
@@ -276,7 +318,7 @@ the reviewed repository. Each verdict and each post makes one commit, and the li
 <host>/<owner>/<repo>/<number>/
   ledger.json                    # schemaVersion 1
   logs/round-<k>/<gate>-<attempt>.log   # gate run only; a gate ci attempt has no log
-  reads/round-<k>.jsonl          # one line per counted Read, diff or read
+  reads/round-<k>.jsonl          # one line per counted Read, shell read, diff or read
   drafts/round-<k>.md
   ledger.lock                    # held while a command changes this pull request; git-ignored
 ```
@@ -300,9 +342,15 @@ before the gates and reads are done, measured read coverage, and the posted note
 
 - The Read hook works in Claude Code, and the extension in Pi. A Read always counts as a line range: from `offset` (default
   1) for `limit` lines (default 2000, the Read tool's own default). A Read cut short by the token limit
-  counts only when Claude Code marks it `PARTIAL view`; reads through `cat` in a shell or Grep are not
-  counted. Pi's reads count the lines Pi showed. A helper agent that runs as its own Pi process
-  (such as Pi's subagent example) records its reads as the main session's.
+  counts only when Claude Code marks it `PARTIAL view`. Grep is not counted. Pi's reads count the
+  lines Pi showed. A helper agent that runs as its own Pi process (such as Pi's subagent example)
+  records its reads as the main session's.
+- Shell reads (Claude Code and Codex) count only the commands listed under
+  [Shell reads](#shell-reads), and only the lines found in the output as they are in the file now
+  (the working tree, as for Read). A line that is the same at another commit counts, so
+  `git show <old rev>:<path>` counts the lines that did not change. Pi's shell (`bash` tool) is not
+  followed. A Codex command still running when its call returns (a session `write_stdin` polls
+  later) is recorded when Codex sends its PostToolUse.
 - Other agents use `reviewproof diff` and `reviewproof read`. Both print what they count, so a file
   counted read was shown to the caller; reviewproof cannot tell that anyone understood it.
 - On Windows a `.cmd` tool (such as `npm`) is retried through `cmd.exe`, which expands `%VAR%` in the

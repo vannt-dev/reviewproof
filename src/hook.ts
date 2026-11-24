@@ -1,7 +1,9 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { activeFor, canon, relativeTo } from './active.ts';
 import { appendRead } from './reads.ts';
+import { type Dialect, displayPath, outputLines, shellDisplays, shownRanges } from './shell-reads.ts';
 import { LedgerStore } from './store.ts';
 import type { ReadMark } from './types.ts';
 
@@ -22,6 +24,7 @@ interface HookEvent {
   tool_input?: { file_path?: unknown; offset?: unknown; limit?: unknown; command?: unknown };
   tool_response?: unknown;
   agent_id?: unknown;
+  cwd?: unknown;
 }
 
 /**
@@ -53,6 +56,9 @@ export function handleHook(event: unknown, home: string): string | null {
     const e = event as HookEvent;
     if (e.hook_event_name === 'PreToolUse') return denyPost(e);
     if (e.hook_event_name === 'PostToolUse' && e.tool_name === 'Read') recordRead(e, home);
+    if (e.hook_event_name === 'PostToolUse' && (e.tool_name === 'Bash' || e.tool_name === 'PowerShell')) {
+      recordShellReads(e, home);
+    }
     return null;
   } catch {
     return null;
@@ -131,4 +137,57 @@ function recordPiRead(e: PiToolResult, home: string): void {
     mark.range = [start, start + shown - 1];
   }
   appendRead(store, active.ref, round.n, mark);
+}
+
+// What the model was shown of a shell command's output: Claude Code's stdout, or the text Codex
+// passes for its Bash tool. Null when the model got something else (a preview of output too
+// large to show, an image) or the call was stopped.
+function shownOutput(response: unknown): string | null {
+  if (typeof response === 'string') return response; // Codex: the output as the model got it
+  if (typeof response !== 'object' || response === null) return null;
+  const r = response as { stdout?: unknown; interrupted?: unknown; isImage?: unknown; persistedOutputPath?: unknown };
+  // Claude Code saves a large output to a file and shows the model only its first 2 KB.
+  if (r.persistedOutputPath !== undefined || r.interrupted === true || r.isImage === true) return null;
+  return typeof r.stdout === 'string' ? r.stdout : null;
+}
+
+function recordShellReads(e: HookEvent, home: string): void {
+  const command = e.tool_input?.command;
+  if (typeof command !== 'string') return;
+  // Codex passes no shell: its commands run in PowerShell on Windows and sh elsewhere, unless the
+  // model picked another one, so the other dialect is tried when the first finds no file.
+  const codex = typeof e.tool_response === 'string';
+  const first: Dialect = e.tool_name === 'PowerShell' || (codex && process.platform === 'win32') ? 'powershell' : 'posix';
+  let displays = shellDisplays(command, first);
+  if (displays.length === 0 && codex) displays = shellDisplays(command, first === 'posix' ? 'powershell' : 'posix');
+  if (displays.length === 0) return;
+  const text = shownOutput(e.tool_response);
+  if (!text) return;
+  const output = outputLines(text);
+  const cwd = typeof e.cwd === 'string' ? e.cwd : null;
+  const at = new Date().toISOString();
+  let from = 0;
+  for (const d of displays) {
+    const file = displayPath(d, cwd);
+    if (file === null) continue;
+    const active = activeFor(home, file);
+    if (!active) continue;
+    let content: string;
+    try {
+      content = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    const shown = shownRanges(content, d, output, from);
+    from = shown.next;
+    if (shown.ranges.length === 0) continue;
+    const store = new LedgerStore(home);
+    const round = store.load(active.ref)?.rounds.at(-1);
+    if (!round) continue;
+    for (const range of shown.ranges) {
+      const mark: ReadMark = { file: relativeTo(active.checkout, canon(file)), range, via: 'hook', at };
+      if (typeof e.agent_id === 'string') mark.agent = e.agent_id;
+      appendRead(store, active.ref, round.n, mark);
+    }
+  }
 }

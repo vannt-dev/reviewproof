@@ -17,7 +17,7 @@ const hookCommand = {
 test('hooks.json wires the Read and shell events to the exec-form hook command', () => {
   const hooks = readJson('hooks/hooks.json').hooks;
   assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreToolUse']);
-  assert.deepEqual(hooks.PostToolUse, [{ matcher: 'Read', hooks: [hookCommand] }]);
+  assert.deepEqual(hooks.PostToolUse, [{ matcher: 'Read|Bash|PowerShell', hooks: [hookCommand] }]);
   assert.deepEqual(hooks.PreToolUse, [{ matcher: 'Bash|PowerShell', hooks: [hookCommand] }]);
 });
 
