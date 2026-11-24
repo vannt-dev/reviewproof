@@ -39,6 +39,7 @@ test('the npm tarball carries the built CLI and the plugin files', () => {
   const files: string[] = JSON.parse(r.stdout)[0].files.map((f: { path: string }) => f.path);
   for (const want of [
     'dist/bin/reviewproof.js',
+    'dist/src/pi.js',
     'hooks/hooks.json',
     '.claude-plugin/plugin.json',
     'skills/review-round/SKILL.md',

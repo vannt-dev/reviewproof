@@ -1,7 +1,5 @@
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from '../git-env.ts';
-import os from 'node:os';
-import path from 'node:path';
 import type { ParseArgsOptionsConfig } from 'node:util';
 import { activeFor } from '../active.ts';
 import { loadConfig, type Config } from '../config.ts';
@@ -10,7 +8,7 @@ import { changedFiles } from '../diff.ts';
 import { evidenceState, type EvidenceState } from '../evidence.ts';
 import { hostFor, type Host } from '../hosts.ts';
 import { allReads } from '../reads.ts';
-import { LedgerStore } from '../store.ts';
+import { defaultHome, LedgerStore } from '../store.ts';
 import type { Ledger, PrRef, Round } from '../types.ts';
 
 export interface Deps {
@@ -30,7 +28,7 @@ export interface Env {
 }
 
 export function envFrom(deps: Deps): Env {
-  const home = deps.home ?? (process.env.REVIEWPROOF_HOME || path.join(os.homedir(), '.reviewproof'));
+  const home = deps.home ?? defaultHome();
   return {
     cwd: deps.cwd ?? process.cwd(),
     home,

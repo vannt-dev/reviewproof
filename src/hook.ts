@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { activeFor, canon, relativeTo } from './active.ts';
 import { appendRead } from './reads.ts';
 import { LedgerStore } from './store.ts';
@@ -22,10 +24,32 @@ interface HookEvent {
   agent_id?: unknown;
 }
 
+/**
+ * A finished Pi tool call, as reviewproof's Pi extension passes it on: Pi's `tool_result` event
+ * without the content, plus the session's folder and whether the content held an image.
+ */
+export interface PiToolResult {
+  pi_event: 'tool_result';
+  toolName?: unknown;
+  input?: { path?: unknown; offset?: unknown; limit?: unknown };
+  isError?: unknown;
+  details?: {
+    truncation?: { truncated?: unknown; outputLines?: unknown; firstLineExceedsLimit?: unknown };
+    imageUnsupportedByModel?: unknown;
+  };
+  parentToolCallId?: unknown;
+  image?: unknown;
+  cwd?: unknown;
+}
+
 // Never throws and never blocks a tool call: anything unexpected answers null.
 export function handleHook(event: unknown, home: string): string | null {
   try {
     if (typeof event !== 'object' || event === null) return null;
+    if ((event as PiToolResult).pi_event === 'tool_result') {
+      recordPiRead(event as PiToolResult, home);
+      return null;
+    }
     const e = event as HookEvent;
     if (e.hook_event_name === 'PreToolUse') return denyPost(e);
     if (e.hook_event_name === 'PostToolUse' && e.tool_name === 'Read') recordRead(e, home);
@@ -63,5 +87,48 @@ function recordRead(e: HookEvent, home: string): void {
   mark.range = [offset, offset + limit - 1];
   if (response?.includes('PARTIAL view')) mark.partial = true;
   if (typeof e.agent_id === 'string') mark.agent = e.agent_id;
+  appendRead(store, active.ref, round.n, mark);
+}
+
+/** Pi's lines per read when the call sets no limit, the same as Claude Code's. */
+const PI_MAX_LINES = 2000;
+
+// The file Pi's read tool opened: its path as written, a leading `@` dropped, `~` the home
+// folder, relative to the session's folder.
+function piPath(raw: string, cwd: string): string {
+  const p = raw.replace(/^@/, '');
+  if (p === '~') return os.homedir();
+  if (/^~[/\\]/.test(p)) return path.join(os.homedir(), p.slice(2));
+  return path.resolve(cwd, p);
+}
+
+function recordPiRead(e: PiToolResult, home: string): void {
+  // A failed read showed nothing; a read made by another tool (a codemode script) was not shown
+  // to the model as it is.
+  if (e.toolName !== 'read' || e.isError === true || e.parentToolCallId !== undefined) return;
+  // An image the model cannot take in reached it as a placeholder only.
+  if (e.image === true && e.details?.imageUnsupportedByModel !== undefined) return;
+  const input = e.input;
+  if (typeof input?.path !== 'string' || !input.path || typeof e.cwd !== 'string') return;
+  const file = piPath(input.path, e.cwd);
+  const active = activeFor(home, file);
+  if (!active) return;
+  const store = new LedgerStore(home);
+  const round = store.load(active.ref)?.rounds.at(-1);
+  if (!round) return;
+  const mark: ReadMark = { file: relativeTo(active.checkout, canon(file)), via: 'hook', at: new Date().toISOString() };
+  if (e.image !== true) {
+    // Pi's offset is a 1-based line number. It shows up to `limit` lines, at most 2000 lines and
+    // 50 KB: when it cuts the text, its truncation details say how many whole lines it showed.
+    const start = typeof input.offset === 'number' && input.offset >= 1 ? Math.floor(input.offset) : 1;
+    const t = e.details?.truncation;
+    let shown: number;
+    if (t?.firstLineExceedsLimit === true) return;
+    if (t?.truncated === true && typeof t.outputLines === 'number') shown = t.outputLines;
+    else if (typeof input.limit === 'number') shown = Math.min(Math.floor(input.limit), PI_MAX_LINES);
+    else shown = PI_MAX_LINES;
+    if (shown < 1) return;
+    mark.range = [start, start + shown - 1];
+  }
   appendRead(store, active.ref, round.n, mark);
 }

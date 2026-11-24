@@ -25,6 +25,11 @@
   "bin": {
     "reviewproof": "dist/bin/reviewproof.js"
   },
+  "pi": {
+    "extensions": [
+      "./dist/src/pi.js"
+    ]
+  },
   "files": [
     "dist",
     "hooks",

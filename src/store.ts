@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from './git-env.ts';
@@ -7,6 +8,11 @@ import { withLock } from './lock.ts';
 import type { Ledger, PrRef } from './types.ts';
 
 const LOCAL_FILES = ['active.json', '*.tmp', '*.lock'];
+
+/** Where the ledgers live: REVIEWPROOF_HOME, else ~/.reviewproof. */
+export function defaultHome(): string {
+  return process.env.REVIEWPROOF_HOME || path.join(os.homedir(), '.reviewproof');
+}
 
 export class LedgerStore {
   private readonly home: string;
