@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/vannt-dev/reviewproof/compare/v0.7.0...v0.8.0) (2026-11-24)
+
+
+### Features
+
+* plugin/ folder with the review-round skill for the Claude plugin directory ([#34](https://github.com/vannt-dev/reviewproof/issues/34)) ([9fc625d](https://github.com/vannt-dev/reviewproof/commit/9fc625d659262824b7f06cb11542fb96cf77f5cb))
+* record Pi read tool reads as review evidence ([#37](https://github.com/vannt-dev/reviewproof/issues/37)) ([747c593](https://github.com/vannt-dev/reviewproof/commit/747c5936e14286aeaddbd7ad16a2af67e0bb15bc))
+
 ## [0.7.0](https://github.com/vannt-dev/reviewproof/compare/v0.6.0...v0.7.0) (2026-11-16)
 
 
