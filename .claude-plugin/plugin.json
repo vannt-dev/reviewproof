@@ -1,7 +1,7 @@
 {
   "name": "reviewproof",
   "description": "A per-pull-request review ledger: sourced findings, evidence to withdraw, no verdict before gates and full reads, no post without a named person. Hooks: lines shown by Read and by file-printing shell commands are logged only inside an active review's checkout; a shell `reviewproof post` is denied.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "author": {
     "name": "vannt-dev"
   },

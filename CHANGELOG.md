@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/vannt-dev/reviewproof/compare/v0.8.0...v0.9.0) (2026-11-24)
+
+
+### Features
+
+* count files read through the shell and in Codex as review evidence ([#38](https://github.com/vannt-dev/reviewproof/issues/38)) ([3a9a6b2](https://github.com/vannt-dev/reviewproof/commit/3a9a6b2f3b2fbf7891a46ebd2bb6ee58221ef781))
+
 ## [0.8.0](https://github.com/vannt-dev/reviewproof/compare/v0.7.0...v0.8.0) (2026-11-24)
 
 
